@@ -40,8 +40,14 @@ export default async function HomePage() {
     usd.committedCents > 0
 
   const base = Math.max(1, uyu.availableCents + uyu.committedCents)
-  const availablePct = Math.max(0, Math.min(100, Math.round((uyu.availableCents / base) * 100)))
-  const committedPct = Math.max(0, 100 - availablePct)
+  const hasMoney = uyu.availableCents + uyu.committedCents > 0
+  const availablePct = hasMoney ? Math.max(0, Math.min(100, Math.round((uyu.availableCents / base) * 100))) : 0
+  const committedPct = hasMoney ? Math.max(0, 100 - availablePct) : 0
+  const noData =
+    data.input.accounts.length === 0 &&
+    data.input.incomes.length === 0 &&
+    data.input.expenses.length === 0 &&
+    data.input.installments.length === 0
   const upcoming = overview.upcoming.slice(0, 5)
   const uyuFlows = overview.projections.UYU
   const endOfHorizon = uyuFlows[uyuFlows.length - 1]
@@ -120,10 +126,14 @@ export default async function HomePage() {
             </div>
           </div>
 
-          <div className="segmented-bar" aria-hidden="true">
-            <span className="spent" style={{ width: `${committedPct}%` }} />
-            <span className="committed" style={{ width: `${availablePct}%`, background: '#a8cbbc' }} />
-          </div>
+          {hasMoney ? (
+            <div className="segmented-bar" aria-hidden="true">
+              <span className="spent" style={{ width: `${committedPct}%` }} />
+              <span className="committed" style={{ width: `${availablePct}%`, background: '#a8cbbc' }} />
+            </div>
+          ) : (
+            <div className="segmented-bar" style={{ background: 'rgba(255,255,255,.12)' }} aria-hidden="true" />
+          )}
           <div className="bar-legend">
             <span>
               <i className="committed" style={{ background: '#b7a8d7' }} />
@@ -242,9 +252,11 @@ export default async function HomePage() {
           <div>
             <span className="eyebrow">{uyu.savingsCapacityRawCents < 0 ? 'Margen ajustado' : 'Ahorro posible'}</span>
             <h3>
-              {uyu.savingsCapacityRawCents < 0
-                ? `Te faltan ${formatMoney(Math.abs(uyu.savingsCapacityRawCents), 'UYU')} para cubrir el mes`
-                : `Podrías ahorrar hasta ${formatMoney(uyu.savingsCapacityCents, 'UYU')} este mes`}
+              {noData
+                ? 'Cargá tu saldo e ingresos para saber cuánto podés ahorrar'
+                : uyu.savingsCapacityRawCents < 0
+                  ? `Te faltan ${formatMoney(Math.abs(uyu.savingsCapacityRawCents), 'UYU')} para cubrir el mes`
+                  : `Podrías ahorrar hasta ${formatMoney(uyu.savingsCapacityCents, 'UYU')} este mes`}
             </h3>
             <p>
               {uyu.savingsCapacityRawCents < 0
@@ -268,6 +280,24 @@ export default async function HomePage() {
             </Link>
           }
         />
+        {noData ? (
+          <div className="empty-state" style={{ padding: '22px 18px' }}>
+            <strong>Empezá por lo básico</strong>
+            Con tu saldo actual, un ingreso y un par de gastos ya se puede proyectar.
+            <div className="row" style={{ justifyContent: 'center', marginTop: 14 }}>
+              <Link href="/ajustes#cuentas" className="secondary-button small-button">
+                <Icon name="bank" size={14} /> Agregar cuenta
+              </Link>
+              <Link href="/ajustes#ingresos" className="secondary-button small-button">
+                <Icon name="arrowDown" size={14} /> Agregar ingreso
+              </Link>
+              <Link href="/movimientos?nuevo=1" className="primary-button small-button">
+                <Icon name="plus" size={14} /> Primer gasto
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <>
         <ProjectionChart flows={uyuFlows} currency="UYU" />
         <div className="row" style={{ marginTop: 14, gap: 18 }}>
           <span className="hint">
@@ -285,6 +315,8 @@ export default async function HomePage() {
             <Badge tone="ok">Sin meses en negativo</Badge>
           )}
         </div>
+          </>
+        )}
       </section>
 
       <section className="panel">
