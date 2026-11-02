@@ -1,4 +1,6 @@
-import { SignJWT, jwtVerify } from 'jose'
+// Subpaths concretos: evita arrastrar JWE/deflate al bundle del middleware (Edge).
+import { SignJWT } from 'jose/jwt/sign'
+import { jwtVerify } from 'jose/jwt/verify'
 
 /** Sesión firmada (JWT HS256) en cookie httpOnly. Sin estado en el servidor. */
 export const SESSION_COOKIE = 'rg_session'
