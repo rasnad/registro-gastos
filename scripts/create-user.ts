@@ -96,9 +96,12 @@ async function main() {
   }
 
   const providedPassword = arg('password') ?? process.env.USER_PASSWORD
-  if (providedPassword && providedPassword.length < 10) {
-    console.error('La contraseña debe tener al menos 10 caracteres.')
+  if (providedPassword && providedPassword.length < 8) {
+    console.error('La contraseña debe tener al menos 8 caracteres.')
     process.exit(1)
+  }
+  if (providedPassword && (providedPassword.length < 12 || /^d+$/.test(providedPassword))) {
+    console.warn('Aviso: contraseña corta o sólo numérica. Para un sitio público conviene una frase de 4+ palabras.')
   }
   const password = providedPassword ?? generatePassword()
   const passwordHash = await bcrypt.hash(password, 12)
