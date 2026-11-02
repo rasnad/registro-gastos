@@ -1,0 +1,53 @@
+{
+  "name": "registro-gastos",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "node --dns-result-order=ipv4first node_modules/next/dist/bin/next dev",
+    "build": "prisma generate && node --dns-result-order=ipv4first node_modules/next/dist/bin/next build",
+    "start": "node --dns-result-order=ipv4first node_modules/next/dist/bin/next start",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:push": "prisma db push",
+    "db:seed": "prisma db seed",
+    "db:studio": "prisma studio",
+    "postinstall": "prisma generate",
+    "db:apply": "node --dns-result-order=ipv4first --import tsx scripts/apply-migrations.ts",
+    "seed:demo": "node --dns-result-order=ipv4first --import tsx scripts/seed-demo.ts"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^1.2.0",
+    "@prisma/adapter-neon": "^6.19.3",
+    "@prisma/client": "6.19.3",
+    "bcryptjs": "^3.0.2",
+    "date-fns": "^4.1.0",
+    "dotenv": "^18.0.9",
+    "googleapis": "^165.0.0",
+    "jose": "^6.1.0",
+    "next": "15.5.28",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "unpdf": "^1.4.0",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.14",
+    "@types/node": "^22.15.0",
+    "@types/pg": "^8.23.1",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "pg": "^8.23.1",
+    "playwright-core": "^1.64.1",
+    "prisma": "6.19.3",
+    "tailwindcss": "^4.1.14",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  }
+}

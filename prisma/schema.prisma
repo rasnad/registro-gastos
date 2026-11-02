@@ -1,0 +1,518 @@
+// Esquema de datos — Registro de gastos
+// Reglas clave:
+//  - Los importes se guardan como Decimal(14,2) y se operan como centavos (enteros) en la lógica.
+//  - Nunca se convierten monedas: cada movimiento vive en UYU o USD.
+//  - Una compra con tarjeta genera una obligación (CardInstallment), no un débito de cuenta.
+//  - El pago del resumen (CardPayment) descuenta la cuenta y marca las cuotas como pagadas.
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Currency {
+  UYU
+  USD
+}
+
+enum AccountKind {
+  BANK
+  CASH
+  WALLET
+}
+
+enum PaymentSource {
+  ACCOUNT
+  CREDIT_CARD
+}
+
+enum ExpenseOrigin {
+  MANUAL
+  EMAIL
+  STATEMENT
+}
+
+enum ReviewStatus {
+  CONFIRMED
+  NEEDS_REVIEW
+  DISCARDED
+}
+
+enum IncomeKind {
+  FIXED
+  VARIABLE
+}
+
+enum Recurrence {
+  MONTHLY
+  BIMONTHLY
+  QUARTERLY
+  SEMIANNUAL
+  ANNUAL
+}
+
+enum AmountType {
+  FIXED
+  RANGE
+}
+
+enum BillStatus {
+  PENDING
+  PAID
+}
+
+enum StatementSource {
+  PDF
+  TEXT
+  MANUAL
+}
+
+enum StatementStatus {
+  DRAFT
+  IMPORTED
+  FAILED
+}
+
+enum GmailStatus {
+  ACTIVE
+  REVOKED
+  ERROR
+}
+
+enum MessageStatus {
+  IMPORTED
+  NEEDS_REVIEW
+  SKIPPED_DUPLICATE
+  SKIPPED_SENDER
+  SKIPPED_IRRELEVANT
+  ERROR
+}
+
+enum SyncKind {
+  GMAIL
+  STATEMENT
+}
+
+enum SyncStatus {
+  RUNNING
+  OK
+  PARTIAL
+  ERROR
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  createdAt    DateTime @default(now())
+
+  accounts         Account[]
+  categories       Category[]
+  creditCards      CreditCard[]
+  expenses         Expense[]
+  incomes          Income[]
+  cardPayments     CardPayment[]
+  adjustments      BalanceAdjustment[]
+  merchantRules    MerchantRule[]
+  recurringBills   RecurringBill[]
+  billOccurrences  BillOccurrence[]
+  savingsGoals     SavingsGoal[]
+  contributions    SavingsContribution[]
+  statementImports StatementImport[]
+  gmailConnection  GmailConnection?
+  syncLogs         SyncLog[]
+}
+
+model Account {
+  id            String      @id @default(cuid())
+  userId        String
+  name          String
+  kind          AccountKind @default(BANK)
+  currency      Currency
+  openingBalance Decimal    @db.Decimal(14, 2)
+  openingDate   DateTime    @db.Date
+  isActive      Boolean     @default(true)
+  createdAt     DateTime    @default(now())
+
+  user          User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expenses      Expense[]
+  incomes       Income[]
+  adjustments   BalanceAdjustment[]
+  cardPayments  CardPayment[]
+  billPayments  BillOccurrence[]
+  contributions SavingsContribution[]
+  recurringBills RecurringBill[]
+
+  @@index([userId, isActive])
+}
+
+model CreditCard {
+  id         String   @id @default(cuid())
+  userId     String
+  name       String
+  last4      String?
+  currency   Currency
+  closingDay Int
+  dueDay     Int
+  isActive   Boolean  @default(true)
+  notes      String?
+  createdAt  DateTime @default(now())
+
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expenses     Expense[]
+  installments CardInstallment[]
+  payments     CardPayment[]
+  statements   StatementImport[]
+  recurringBills RecurringBill[]
+
+  @@index([userId, isActive])
+}
+
+model Category {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  icon      String?
+  color     String?
+  isActive  Boolean  @default(true)
+  isSystem  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expenses       Expense[]
+  bills          RecurringBill[]
+  merchantRules  MerchantRule[]
+
+  @@unique([userId, name])
+}
+
+model Expense {
+  id           String       @id @default(cuid())
+  userId       String
+  date         DateTime     @db.Date
+  merchant     String
+  description  String?
+  amount       Decimal      @db.Decimal(14, 2)
+  currency     Currency
+  categoryId   String?
+  source       PaymentSource
+  accountId    String?
+  creditCardId String?
+  installments Int          @default(1)
+  notes        String?
+  origin       ExpenseOrigin @default(MANUAL)
+  status       ReviewStatus  @default(CONFIRMED)
+  isEstimated  Boolean      @default(false)
+
+  // Trazabilidad de importaciones. No se guarda el cuerpo del correo.
+  gmailMessageId   String?
+  statementImportId String?
+  dedupeKey        String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category   Category?  @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  account    Account?   @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  creditCard CreditCard? @relation(fields: [creditCardId], references: [id], onDelete: SetNull)
+  installmentsList CardInstallment[]
+  statement  StatementImport? @relation(fields: [statementImportId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, gmailMessageId])
+  @@index([userId, date])
+  @@index([userId, status])
+  @@index([userId, creditCardId])
+  @@index([userId, dedupeKey])
+}
+
+model CardInstallment {
+  id           String   @id @default(cuid())
+  expenseId    String
+  number       Int
+  count        Int
+  amount       Decimal  @db.Decimal(14, 2)
+  currency     Currency
+  // Mes del resumen (YYYY-MM) al que corresponde esta cuota.
+  period       String
+  dueDate      DateTime? @db.Date
+  isPaid       Boolean  @default(false)
+  paidAt       DateTime? @db.Date
+  isEstimated  Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  expense Expense     @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  // Tarjeta denormalizada para consultar compromisos por período sin joins.
+  card    CreditCard? @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  cardId  String?
+
+  @@unique([expenseId, number])
+  @@index([cardId, period])
+  @@index([period, isPaid])
+}
+
+model CardPayment {
+  id         String   @id @default(cuid())
+  userId     String
+  creditCardId String
+  // Resumen pagado (YYYY-MM). Una compra de junio aparece en el resumen de julio,
+  // por eso el período se guarda explícito y no se deduce de la fecha de pago.
+  period     String
+  amount     Decimal  @db.Decimal(14, 2)
+  currency   Currency
+  paidAt     DateTime @db.Date
+  accountId  String?
+  note       String?
+  createdAt  DateTime @default(now())
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  creditCard CreditCard @relation(fields: [creditCardId], references: [id], onDelete: Cascade)
+  account    Account?   @relation(fields: [accountId], references: [id], onDelete: SetNull)
+
+  @@unique([creditCardId, period])
+  @@index([userId, paidAt])
+}
+
+model Income {
+  id         String     @id @default(cuid())
+  userId     String
+  description String
+  amount     Decimal    @db.Decimal(14, 2)
+  currency   Currency
+  kind       IncomeKind @default(FIXED)
+  // Para ingresos fijos mensuales: día de cobro y vigencia.
+  recurrence Recurrence?
+  dayOfMonth Int?
+  startDate  DateTime   @db.Date
+  endDate    DateTime?  @db.Date
+  accountId  String?
+  isActive   Boolean    @default(true)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account Account? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+
+  @@index([userId, isActive])
+}
+
+model BalanceAdjustment {
+  id          String   @id @default(cuid())
+  userId      String
+  accountId   String
+  date        DateTime @db.Date
+  amountDelta Decimal  @db.Decimal(14, 2)
+  currency    Currency
+  reason      String
+  createdAt   DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([userId, date])
+}
+
+model MerchantRule {
+  id         String   @id @default(cuid())
+  userId     String
+  // Nombre de comercio normalizado (minúsculas, sin acentos ni puntuación).
+  pattern    String
+  categoryId String
+  hits       Int      @default(0)
+  updatedAt  DateTime @updatedAt
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, pattern])
+}
+
+model RecurringBill {
+  id            String       @id @default(cuid())
+  userId        String
+  name          String
+  categoryId    String?
+  amountType    AmountType   @default(FIXED)
+  amountFixed   Decimal?     @db.Decimal(14, 2)
+  amountMin     Decimal?     @db.Decimal(14, 2)
+  amountMax     Decimal?     @db.Decimal(14, 2)
+  currency      Currency
+  frequency     Recurrence   @default(MONTHLY)
+  dueDay        Int
+  paymentSource PaymentSource @default(ACCOUNT)
+  accountId     String?
+  creditCardId  String?
+  startDate     DateTime     @db.Date
+  endDate       DateTime?    @db.Date
+  isActive      Boolean      @default(true)
+  notes         String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category    Category?        @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  account     Account?         @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  creditCard  CreditCard?      @relation(fields: [creditCardId], references: [id], onDelete: SetNull)
+  occurrences BillOccurrence[]
+
+  @@index([userId, isActive])
+}
+
+model BillOccurrence {
+  id         String     @id @default(cuid())
+  billId     String
+  userId     String
+  period     String
+  dueDate    DateTime   @db.Date
+  amountMin  Decimal?   @db.Decimal(14, 2)
+  amountMax  Decimal?   @db.Decimal(14, 2)
+  amountActual Decimal? @db.Decimal(14, 2)
+  currency   Currency
+  status     BillStatus @default(PENDING)
+  paidAt     DateTime?  @db.Date
+  accountId  String?
+  createdAt  DateTime   @default(now())
+
+  bill    RecurringBill @relation(fields: [billId], references: [id], onDelete: Cascade)
+  user    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account Account?      @relation(fields: [accountId], references: [id], onDelete: SetNull)
+
+  @@unique([billId, period])
+  @@index([userId, period])
+}
+
+model SavingsGoal {
+  id           String   @id @default(cuid())
+  userId       String
+  name         String
+  currency     Currency
+  targetAmount Decimal  @db.Decimal(14, 2)
+  targetDate   DateTime @db.Date
+  monthlyTarget Decimal? @db.Decimal(14, 2)
+  priority     Int      @default(3)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user          User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contributions SavingsContribution[]
+
+  @@index([userId, isActive])
+}
+
+model SavingsContribution {
+  id       String   @id @default(cuid())
+  goalId   String
+  userId   String
+  date     DateTime @db.Date
+  amount   Decimal  @db.Decimal(14, 2)
+  currency Currency
+  accountId String?
+  note     String?
+  createdAt DateTime @default(now())
+
+  goal    SavingsGoal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account Account?    @relation(fields: [accountId], references: [id], onDelete: SetNull)
+
+  @@index([userId, goalId])
+}
+
+model StatementImport {
+  id         String         @id @default(cuid())
+  userId     String
+  creditCardId String?
+  period     String?
+  source     StatementSource
+  status     StatementStatus @default(DRAFT)
+  closingDate DateTime?     @db.Date
+  dueDate    DateTime?      @db.Date
+  totalAmount Decimal?      @db.Decimal(14, 2)
+  currency   Currency?
+  fileName   String?
+  fileHash   String?
+  rowsParsed Int            @default(0)
+  rowsImported Int          @default(0)
+  needsReview Int           @default(0)
+  importedAt DateTime?
+  createdAt  DateTime       @default(now())
+
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  creditCard CreditCard? @relation(fields: [creditCardId], references: [id], onDelete: SetNull)
+  expenses   Expense[]
+
+  @@index([userId, createdAt])
+}
+
+model GmailConnection {
+  id            String      @id @default(cuid())
+  userId        String      @unique
+  emailAddress  String
+  refreshToken  String
+  accessToken   String?
+  tokenExpiresAt DateTime?
+  scopes        String
+  status        GmailStatus @default(ACTIVE)
+  importFrom    DateTime    @db.Date
+  autoSync      Boolean     @default(true)
+  lastSyncAt    DateTime?
+  lastSyncStatus SyncStatus?
+  lastSyncError String?
+  connectedAt   DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  user     User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages ProcessedGmailMessage[]
+}
+
+model ProcessedGmailMessage {
+  id           String        @id @default(cuid())
+  connectionId String
+  messageId    String
+  threadId     String?
+  subject      String?
+  fromAddress  String?
+  receivedAt   DateTime?
+  status       MessageStatus
+  reason       String?
+  expenseId    String?
+
+  // Datos extraídos del correo (sin guardar el cuerpo completo).
+  merchant     String?
+  amount       Decimal?  @db.Decimal(14, 2)
+  currency     Currency?
+  purchaseDate DateTime? @db.Date
+  installments Int?
+  cardLast4    String?
+  cardType     String?
+  createdAt    DateTime      @default(now())
+
+  connection GmailConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@unique([connectionId, messageId])
+  @@index([connectionId, receivedAt])
+}
+
+model SyncLog {
+  id         String     @id @default(cuid())
+  userId     String
+  kind       SyncKind
+  status     SyncStatus @default(RUNNING)
+  startedAt  DateTime   @default(now())
+  finishedAt DateTime?
+  imported   Int        @default(0)
+  skipped    Int        @default(0)
+  needsReview Int       @default(0)
+  errors     Int        @default(0)
+  message    String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, startedAt])
+}
