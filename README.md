@@ -8,8 +8,8 @@ mensual. Pesos uruguayos y dólares **por separado**, sin conversiones automáti
 - **Diseño:** sistema visual de la referencia UX/UI provista (DM Sans, paleta lavanda/menta/coral,
   sidebar, tarjetas, bottom-nav en móvil). Responsive y accesible.
 - **Autenticación:** sesión propia firmada (JWT HS256 en cookie httpOnly) con contraseña bcrypt.
-- **Privacidad:** todas las rutas exigen sesión; cada consulta filtra por `userId`. La app es de uso
-  personal y el registro queda abierto sólo para la primera cuenta.
+- **Privacidad:** todas las rutas exigen sesión; cada consulta filtra por `userId`. Es de uso
+  personal: no hay registro público, los usuarios se crean desde la terminal.
 
 ---
 
@@ -22,8 +22,28 @@ npm run db:apply           # aplica las migraciones por HTTPS (Neon)
 npm run dev                # http://localhost:3000
 ```
 
-La primera vez, `/login` muestra **Crear cuenta** (sólo cuando no hay usuarios). Después de crear la
-primera cuenta, el registro se cierra.
+La primera vez no hay usuarios, así que `/login` muestra el comando para crear el primero:
+
+```bash
+npm run user:create -- --email=tu@correo.uy --name="Tu nombre"
+```
+
+Imprime una contraseña aleatoria (o pasá `--password=...`). Después ya se entra normalmente con
+email y contraseña. Para el día a día:
+
+```bash
+npm run user:create -- --list                    # ver usuarios
+npm run user:create -- --reset --email=...       # nueva contraseña
+```
+
+### ¿Una cuenta o dos?
+
+- **Finanzas compartidas (lo habitual en pareja):** un solo usuario, los dos entran con el mismo
+  email y contraseña. Ven y editan el mismo registro.
+- **Registros separados:** un usuario para cada uno. Cada uno ve sólo sus movimientos (los datos no
+  se comparten).
+
+El modelo de datos ya separa todo por `userId`, así que cambiar de una opción a otra no rompe nada.
 
 Datos de demostración opcionales:
 
@@ -275,7 +295,7 @@ En Vercel:
    npm run db:apply
    ```
    (o `npx prisma migrate deploy` desde una red con 5432 habilitado).
-7. Crear la cuenta en `/login` (el registro se cierra después del primer usuario).
+7. Crear los usuarios con `npm run user:create` (ver §1) y entrar por `/login`.
 
 Notas:
 
@@ -309,8 +329,8 @@ contraseña larga + cookie httpOnly; la app está pensada para uso personal.
 - **Un pago por resumen y período** (`CardPayment` único por tarjeta+período). Si el banco cobra
   parcial, se registra el importe real y todas las cuotas del período quedan saldadas; el detalle
   final se puede corregir por cuota.
-- **Registro cerrado tras el primer usuario** (app personal). Para multiusuario habría que abrir el
-  registro y agregar verificación de email.
+- **Sin registro público**: los usuarios se dan de alta por consola (`scripts/create-user.ts`). Para
+  una app de dos personas es más simple y más seguro que mantener un formulario de alta expuesto.
 - **Sin edición de movimientos con cuotas pagadas** (importe/cuotas): se corrigen cuota por cuota para
   no romper la contabilidad.
 - **El cron es diario** porque el plan Hobby de Vercel no permite más frecuencia.

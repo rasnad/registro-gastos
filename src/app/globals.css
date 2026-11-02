@@ -471,21 +471,37 @@ table.table tbody tr:hover { background: #fcfcfb; }
 /* ------------------------------------------------------------------ */
 /* Auth                                                                */
 /* ------------------------------------------------------------------ */
-.auth-page { min-height: 100vh; display: grid; grid-template-columns: 1.05fr 1fr; background: var(--bg); }
-.auth-aside { background: linear-gradient(150deg, #5b5079, #3b3349); color: #fff; padding: 48px; display: flex; flex-direction: column; justify-content: space-between; position: relative; overflow: hidden; }
-.auth-aside::after { content: ''; position: absolute; width: 420px; height: 420px; border: 90px solid rgba(255, 255, 255, 0.04); border-radius: 50%; right: -160px; bottom: -160px; }
-.auth-aside .logo { color: #fff; padding: 0; }
-.auth-aside h2 { font-size: 30px; letter-spacing: -1px; line-height: 1.15; max-width: 380px; }
-.auth-aside p { color: rgba(255, 255, 255, 0.68); font-size: 13px; max-width: 400px; margin-top: 12px; }
-.auth-points { display: flex; flex-direction: column; gap: 12px; margin-top: 26px; position: relative; z-index: 1; }
-.auth-points div { display: flex; align-items: flex-start; gap: 10px; font-size: 12.5px; color: rgba(255, 255, 255, 0.82); }
-.auth-points i { width: 22px; height: 22px; border-radius: 7px; background: rgba(255, 255, 255, 0.12); display: grid; place-items: center; flex: none; font-style: normal; font-size: 11px; }
-.auth-main { display: grid; place-items: center; padding: 32px 24px; }
-.auth-card { width: min(400px, 100%); }
-.auth-card h1 { font-size: 24px; letter-spacing: -0.7px; }
-.auth-card > p { color: var(--muted); font-size: 12.5px; margin: 5px 0 22px; }
-.auth-switch { text-align: center; font-size: 12px; color: var(--muted); margin-top: 16px; }
-.auth-footnote { font-size: 10.5px; color: var(--muted-2); text-align: center; margin-top: 18px; line-height: 1.5; }
+/* Acceso (uso personal: sólo login, sin registro) */
+.auth-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 28px 18px;
+  background: var(--bg);
+}
+.auth-card {
+  width: min(380px, 100%);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 28px;
+  box-shadow: 0 12px 30px rgba(68, 59, 87, 0.07);
+}
+.auth-card h1 { font-size: 21px; letter-spacing: -0.5px; }
+.auth-command {
+  margin: 0;
+  padding: 10px 12px;
+  background: #f6f4f9;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--purple-dark);
+  white-space: pre;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
 
 /* ------------------------------------------------------------------ */
 /* Ajustes / importación                                               */
@@ -584,9 +600,6 @@ table.table tbody tr:hover { background: #fcfcfb; }
   .field-grid { grid-template-columns: 1fr; }
   .import-grid { grid-template-columns: 1fr 1fr; }
   .import-grid .span-2 { grid-column: span 2; }
-  .auth-page { grid-template-columns: 1fr; }
-  .auth-aside { display: none; }
-  .auth-main { padding: 28px 18px; }
   .modal-backdrop { align-items: flex-end; padding: 0; }
   .modal { width: 100%; max-width: none; border-radius: 20px 20px 0 0; max-height: 92vh; padding-bottom: max(22px, env(safe-area-inset-bottom)); }
 

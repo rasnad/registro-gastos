@@ -101,15 +101,7 @@ export function AppShell({
               Revisar <Icon name="arrow" size={13} />
             </Link>
           </div>
-        ) : (
-          <div className="sidebar-tip">
-            <span className="tip-icon">
-              <Icon name="shield" size={17} />
-            </span>
-            <strong>Tus datos son privados</strong>
-            <p>Todo se calcula dentro de tu cuenta. No se comparten ni se envían a terceros.</p>
-          </div>
-        )}
+        ) : null}
 
         <div className="profile" style={{ cursor: 'default' }}>
           <span className="avatar">{initials(user.name)}</span>

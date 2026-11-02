@@ -16,7 +16,8 @@
     "db:studio": "prisma studio",
     "postinstall": "prisma generate",
     "db:apply": "node --dns-result-order=ipv4first --import tsx scripts/apply-migrations.ts",
-    "seed:demo": "node --dns-result-order=ipv4first --import tsx scripts/seed-demo.ts"
+    "seed:demo": "node --dns-result-order=ipv4first --import tsx scripts/seed-demo.ts",
+    "user:create": "node --dns-result-order=ipv4first --import tsx scripts/create-user.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

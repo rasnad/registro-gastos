@@ -60,37 +60,6 @@ export async function login(email: string, password: string): Promise<{ error?: 
   return {}
 }
 
-/**
- * Registro abierto sólo para la primera cuenta: la app es personal.
- * Después de crear el primer usuario, el alta queda cerrada.
- */
-export async function registerFirstUser(input: {
-  name: string
-  email: string
-  password: string
-}): Promise<{ error?: string }> {
-  const total = await prisma.user.count()
-  if (total > 0) {
-    return { error: 'Ya existe una cuenta. Iniciá sesión.' }
-  }
-  if (input.password.length < 10) {
-    return { error: 'Usá una contraseña de al menos 10 caracteres.' }
-  }
-  const email = input.email.trim().toLowerCase()
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return { error: 'El email no es válido.' }
-  }
-
-  const passwordHash = await bcrypt.hash(input.password, 12)
-  const user = await prisma.user.create({
-    data: { name: input.name.trim() || 'Mi cuenta', email, passwordHash },
-  })
-  const { ensureDefaultCategories } = await import('@/lib/categories')
-  await ensureDefaultCategories(user.id)
-  await setSessionCookie({ id: user.id, email: user.email, name: user.name })
-  return {}
-}
-
 export async function logout() {
   const store = await cookies()
   store.delete(SESSION_COOKIE)

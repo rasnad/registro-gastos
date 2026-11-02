@@ -18,17 +18,7 @@ import {
   todayISO,
   addMonthsISO,
 } from '../src/lib/period'
-const DEFAULT_CATEGORIES = [
-  { name: 'Compras', icon: 'bag', color: 'violet' },
-  { name: 'Cuentas', icon: 'receipt', color: 'blue' },
-  { name: 'Comida', icon: 'fork', color: 'mint' },
-  { name: 'Casa', icon: 'home', color: 'lavender' },
-  { name: 'Salidas', icon: 'glass', color: 'peach' },
-  { name: 'Delivery', icon: 'scooter', color: 'yellow' },
-  { name: 'Transporte', icon: 'car', color: 'blue' },
-  { name: 'Otras', icon: 'dots', color: 'gray' },
-  { name: 'Sin categorizar', icon: 'help', color: 'gray' },
-]
+import { DEFAULT_CATEGORIES } from '../src/lib/default-categories'
 
 const prisma = new PrismaClient({
   adapter: new PrismaNeon({ connectionString: process.env.DATABASE_URL! }),
