@@ -7,7 +7,15 @@ import { SESSION_COOKIE, verifySession } from '@/lib/session'
  * La verificación real de datos se repite en el servidor con requireUser().
  */
 
-const PUBLIC_PATHS = ['/login', '/api/auth', '/api/gmail/callback', '/api/cron', '/manifest.webmanifest', '/icon.svg']
+const PUBLIC_PATHS = [
+  '/login',
+  '/api/auth',
+  '/api/gmail/callback',
+  '/api/cron',
+  '/api/health',
+  '/manifest.webmanifest',
+  '/icon.svg',
+]
 
 export async function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl
