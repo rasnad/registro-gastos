@@ -234,6 +234,33 @@ dice explícitamente y **no** presenta el número como exacto.
 
 ## 6. Importación de estado de cuenta
 
+El parser de PDF lee el resumen **por coordenadas**, no por texto plano. Eso permite separar las dos
+columnas de importe del resumen de Itaú (pesos y dólares) y no confundir monedas:
+
+```
+05/10/26                     ← cierre / emisión
+19/10/26 16/11/26            ← vencimiento y próximo cierre
+05 09 26 7061 OPENAI ... 20,00        ← columna dólares
+20 05 26 7061 ZONA TECNO 5/12 3,33    ← cuota 5 de 12, dólares
+02 09 26 7061 MERCADOLIBRE 2/10 107,80 ← columna pesos
+SALDO CONTADO 28.702,49 229,22        ← total del resumen por moneda
+```
+
+- **Cuotas**: una línea `N/M` se toma como la cuota del resumen; se crean M cuotas, las N-1
+  anteriores quedan pagadas (ya estaban en resúmenes previos) y las futuras quedan como compromiso.
+- **Período del resumen**: es el mes del vencimiento (editable en el paso 2). Si pagás el resumen al
+  mes siguiente, cambiá el período antes de importar; de ahí salen los meses de cada cuota.
+- **Categorías**: se sugieren por reglas de comercio (`src/lib/categories-rules.ts`). No se asigna
+  nada sin que lo veas, y podés recordar la elección por comercio.
+- **Líneas omitidas**: pagos, saldos, ajustes de IVA, seguro de vida y notas de crédito no se importan
+  como consumos. Se muestran con su motivo para que no desaparezcan sin explicación.
+- **Total del resumen**: se guarda por moneda y se muestra en Tarjetas como referencia del importe a
+  pagar. La deuda registrada puede ser mayor porque el banco ya aplicó pagos o créditos.
+- **Tarjetas multi-moneda**: una tarjeta puede tener resumen en pesos y en dólares. Los pagos se
+  registran por período **y** moneda, y cada uno salda sólo las cuotas de su moneda.
+
+
+
 1. **Ajustes → Importar resumen** (o desde Tarjetas).
 2. Elegir tarjeta y subir el PDF (máx. 10 MB) o pegar el texto, o cargar a mano.
 3. Se muestra una **vista previa editable** con confiabilidad, cierre, vencimiento, total y filas.
@@ -266,9 +293,9 @@ Cobertura de los puntos críticos:
 | Saldos | Compra con tarjeta no toca el banco, pago de resumen descuenta una sola vez, cuentas con tarjeta no se duplican, monedas separadas. |
 | Proyección | Mes en curso usa saldo real y no re-resta lo ya gastado; rangos variables; datos faltantes explícitos. |
 | Objetivos | Asignación conjunta por prioridad, sin asignar el mismo margen dos veces. |
-| Parsers | Extracción de avisos de consumo y de resúmenes, datos faltantes, instrucciones sospechosas ignoradas. |
+| Parsers | Extracción de avisos de consumo y de resúmenes, columnas pesos/dólares, cuotas N/M, líneas omitidas, datos faltantes e instrucciones sospechosas ignoradas. |
 
-Resultado: **48/48 tests OK** y **build de producción OK**. El smoke test E2E (login → alta de gasto →
+Resultado: **58/58 tests OK** y **build de producción OK**. El smoke test E2E (login → alta de gasto →
 verificación de saldo → borrado → importación manual → estado "por revisar") pasó sin errores de
 consola.
 
@@ -324,6 +351,12 @@ contraseña larga + cookie httpOnly; la app está pensada para uso personal.
 
 ## 10. Supuestos y decisiones
 
+- **Categorías por reglas, no por IA.** `suggestCategoryName` mapea comercios frecuentes; si no hay
+  coincidencia queda "Sin categorizar". La interfaz está preparada para reemplazarlo por un LLM más
+  adelante (una sola función pura).
+- **Tarjeta multi-moneda.** El resumen de Itaú trae pesos y dólares en el mismo documento; por eso el
+  pago del resumen es único por (tarjeta, período, moneda).
+
 - **Sin conversión de moneda.** Para evitar cifras incorrectas, cada moneda se muestra y proyecta por
   separado. Un tipo de cambio explícito queda como mejora futura.
 - **Un pago por resumen y período** (`CardPayment` único por tarjeta+período). Si el banco cobra
@@ -340,6 +373,9 @@ contraseña larga + cookie httpOnly; la app está pensada para uso personal.
 ---
 
 ## 11. Lo que falta de tu lado
+
+0. **Crear la tarjeta** en Ajustes → Tarjetas (cierre y vencimiento reales) antes de importar el
+   resumen, y elegir el período correcto en el paso 2 de la importación.
 
 1. **Gmail:** crear el proyecto en Google Cloud, habilitar Gmail API, configurar la pantalla de
    consentimiento y el cliente OAuth, y pegar `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` y

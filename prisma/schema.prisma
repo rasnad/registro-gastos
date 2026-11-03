@@ -275,7 +275,8 @@ model CardPayment {
   creditCard CreditCard @relation(fields: [creditCardId], references: [id], onDelete: Cascade)
   account    Account?   @relation(fields: [accountId], references: [id], onDelete: SetNull)
 
-  @@unique([creditCardId, period])
+  // Una tarjeta puede tener resumen en pesos y en dólares: un pago por período y moneda.
+  @@unique([creditCardId, period, currency])
   @@index([userId, paidAt])
 }
 
@@ -434,6 +435,9 @@ model StatementImport {
   closingDate DateTime?     @db.Date
   dueDate    DateTime?      @db.Date
   totalAmount Decimal?      @db.Decimal(14, 2)
+  // El resumen de Itaú tiene totales separados en pesos y dólares.
+  totalUyu   Decimal?       @db.Decimal(14, 2)
+  totalUsd   Decimal?       @db.Decimal(14, 2)
   currency   Currency?
   fileName   String?
   fileHash   String?

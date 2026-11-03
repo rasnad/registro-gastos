@@ -99,9 +99,6 @@ export async function createExpense(_prev: ActionState, formData: FormData): Pro
 
   const card = await ownedCard(user.id, input.creditCardId)
   if (input.source === 'CREDIT_CARD' && !card) return { error: 'La tarjeta seleccionada no existe.' }
-  if (input.source === 'CREDIT_CARD' && card && card.currency !== input.currency) {
-    return { error: `La tarjeta "${card.name}" es en ${card.currency}.` }
-  }
 
   const category = await ownedCategory(user.id, input.categoryId)
   if (input.categoryId && !category) return { error: 'La categoría seleccionada no existe.' }

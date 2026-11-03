@@ -521,7 +521,7 @@ table.table tbody tr:hover { background: #fcfcfb; }
 .import-row { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; background: #fff; }
 .import-row.needs-review { border-color: #f0dfbd; background: #fffdf8; }
 .import-row .row { gap: 8px; }
-.import-grid { display: grid; grid-template-columns: 1.4fr 0.9fr 0.9fr 0.8fr 0.8fr 0.7fr auto; gap: 6px; align-items: center; }
+.import-grid { display: grid; grid-template-columns: 24px 126px minmax(150px, 1.4fr) 92px 62px 62px 132px 32px; gap: 6px; align-items: center; }
 .import-grid .input, .import-grid .select { min-height: 34px; height: 34px; font-size: 12px; padding: 4px 7px; }
 .import-grid .input.amount { text-align: right; font-variant-numeric: tabular-nums; }
 .review-flag { color: var(--amber); font-size: 10.5px; display: flex; align-items: center; gap: 4px; }
@@ -598,8 +598,8 @@ table.table tbody tr:hover { background: #fcfcfb; }
   .table-wrap { border-radius: 12px; }
   .settings-nav { margin: 0 -16px; padding: 0 16px 6px; }
   .field-grid { grid-template-columns: 1fr; }
-  .import-grid { grid-template-columns: 1fr 1fr; }
-  .import-grid .span-2 { grid-column: span 2; }
+  .import-grid { grid-template-columns: 24px 1fr 1fr; }
+  .import-grid .input.amount { text-align: left; }
   .modal-backdrop { align-items: flex-end; padding: 0; }
   .modal { width: 100%; max-width: none; border-radius: 20px 20px 0 0; max-height: 92vh; padding-bottom: max(22px, env(safe-area-inset-bottom)); }
 

@@ -122,15 +122,18 @@ export function CardPaymentForm({
   defaultCardId,
   defaultPeriod,
   defaultAmount,
+  defaultCurrency,
 }: {
   cards: CardOption[]
   accounts: AccountOption[]
   defaultCardId?: string
   defaultPeriod: string
   defaultAmount?: string
+  defaultCurrency?: CurrencyCode
 }) {
   const [cardId, setCardId] = useState(defaultCardId ?? cards[0]?.id ?? '')
   const card = cards.find((item) => item.id === cardId)
+  const [payCurrency, setPayCurrency] = useState<CurrencyCode>(defaultCurrency ?? card?.currency ?? 'UYU')
   return (
     <ActionForm action={registerCardPayment} submitLabel="Registrar pago">
       <div className="field-grid">
@@ -155,16 +158,28 @@ export function CardPaymentForm({
           <input className="input" name="amount" inputMode="decimal" required defaultValue={defaultAmount} placeholder="0,00" />
         </label>
         <label className="field">
-          <span>Fecha de pago</span>
-          <input className="input" type="date" name="paidAt" required defaultValue={new Date().toISOString().slice(0, 10)} />
+          <span>Moneda</span>
+          <select
+            className="select"
+            name="currency"
+            value={payCurrency}
+            onChange={(event) => setPayCurrency(event.target.value as CurrencyCode)}
+          >
+            <option value="UYU">Pesos (UYU)</option>
+            <option value="USD">Dólares (USD)</option>
+          </select>
         </label>
       </div>
+      <label className="field">
+        <span>Fecha de pago</span>
+        <input className="input" type="date" name="paidAt" required defaultValue={new Date().toISOString().slice(0, 10)} />
+      </label>
       <label className="field">
         <span>Cuenta desde la que pagaste</span>
         <select className="select" name="accountId" defaultValue="">
           <option value="">Fuera de las cuentas registradas</option>
           {accounts
-            .filter((account) => !card || account.currency === card.currency)
+            .filter((account) => account.currency === payCurrency)
             .map((account) => (
               <option key={account.id} value={account.id}>
                 {account.name}

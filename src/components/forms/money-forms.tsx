@@ -64,7 +64,8 @@ export function ExpenseForm({
   const [suggestion, setSuggestion] = useState<string | null>(null)
 
   const accountsForCurrency = accounts.filter((account) => account.currency === currency)
-  const cardsForCurrency = cards.filter((card) => card.currency === currency)
+  // Una tarjeta puede tener consumos en pesos y en dólares (resumen dual).
+  const cardsForCurrency = cards
   const activeCategories = categories.filter((category) => category.isActive || category.id === defaults?.categoryId)
 
   const suggested = useMemo(() => {
@@ -225,10 +226,13 @@ export function ExpenseForm({
                 </option>
                 {cardsForCurrency.map((card) => (
                   <option key={card.id} value={card.id}>
-                    {card.name}
+                    {card.name} · {card.currency}
                   </option>
                 ))}
               </select>
+              {cards.length === 0 ? (
+                <span className="hint">No tenés tarjetas. Creá una en Ajustes → Tarjetas.</span>
+              ) : null}
             </label>
             <label className="field">
               <span>Cuotas</span>

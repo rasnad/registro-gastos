@@ -396,7 +396,16 @@ export function cardChargedBillsForPeriod(
       const month = addMonthsKey(period, offset)
       if (!isRecurringInPeriod(bill.startDate, bill.endDate, month, step)) continue
       // Si el resumen de esa tarjeta ya está pago, el cargo ya está saldado.
-      if (input.cardPayments.some((payment) => payment.creditCardId === bill.creditCardId && payment.period === period)) continue
+      if (
+        input.cardPayments.some(
+          (payment) =>
+            payment.creditCardId === bill.creditCardId &&
+            payment.period === period &&
+            payment.currency === bill.currency,
+        )
+      ) {
+        continue
+      }
       const occurrence =
         input.billOccurrences.find((o) => o.billId === bill.id && o.period === month) ?? null
       const dueDate = occurrence?.dueDate ?? dateInMonth(month, bill.dueDay)

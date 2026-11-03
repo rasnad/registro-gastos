@@ -18,6 +18,7 @@ export async function registerCardPayment(_prev: ActionState, formData: FormData
   const amountCents = cents(formData, 'amount')
   const paidAt = isoDate(formData, 'paidAt')
   const accountId = optStr(formData, 'accountId')
+  const payCurrency = currency(formData, 'currency') ?? card.currency
 
   if (!period) return { error: 'Indicá el resumen que estás pagando (AAAA-MM).' }
   if (amountCents === null || amountCents <= 0) return { error: 'El importe del pago no es válido.' }
@@ -26,20 +27,20 @@ export async function registerCardPayment(_prev: ActionState, formData: FormData
   if (accountId) {
     const account = await prisma.account.findFirst({ where: { id: accountId, userId: user.id } })
     if (!account) return { error: 'La cuenta no existe.' }
-    if (account.currency !== card.currency) {
-      return { error: `La cuenta es en ${account.currency} y la tarjeta en ${card.currency}.` }
+    if (account.currency !== payCurrency) {
+      return { error: `La cuenta es en ${account.currency} y el pago en ${payCurrency}.` }
     }
   }
 
   await prisma.$transaction(async (tx) => {
     await tx.cardPayment.upsert({
-      where: { creditCardId_period: { creditCardId: card.id, period } },
+      where: { creditCardId_period_currency: { creditCardId: card.id, period, currency: payCurrency } },
       create: {
         userId: user.id,
         creditCardId: card.id,
         period,
         amount: fromCents(amountCents),
-        currency: card.currency,
+        currency: payCurrency,
         paidAt: dateValue(paidAt),
         accountId,
         note: optStr(formData, 'note'),
@@ -53,7 +54,7 @@ export async function registerCardPayment(_prev: ActionState, formData: FormData
     })
 
     await tx.cardInstallment.updateMany({
-      where: { cardId: card.id, period, isPaid: false },
+      where: { cardId: card.id, period, currency: payCurrency, isPaid: false },
       data: { isPaid: true, paidAt: dateValue(paidAt) },
     })
   })
@@ -71,7 +72,7 @@ export async function deleteCardPayment(_prev: ActionState, formData: FormData):
   await prisma.$transaction(async (tx) => {
     await tx.cardPayment.delete({ where: { id: payment.id } })
     await tx.cardInstallment.updateMany({
-      where: { cardId: payment.creditCardId, period: payment.period, isPaid: true },
+      where: { cardId: payment.creditCardId, period: payment.period, currency: payment.currency, isPaid: true },
       data: { isPaid: false, paidAt: null },
     })
   })

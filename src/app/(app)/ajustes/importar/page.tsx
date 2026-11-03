@@ -17,11 +17,18 @@ export default async function ImportarPage({ searchParams }: { searchParams: Par
   const params = await searchParams
   const cardParam = typeof params.tarjeta === 'string' ? params.tarjeta : undefined
 
-  const cards = await prisma.creditCard.findMany({
-    where: { userId: user.id, isActive: true },
-    orderBy: { createdAt: 'asc' },
-    select: { id: true, name: true, currency: true, closingDay: true, dueDay: true },
-  })
+  const [cards, categories] = await Promise.all([
+    prisma.creditCard.findMany({
+      where: { userId: user.id, isActive: true },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true, name: true, currency: true, closingDay: true, dueDay: true },
+    }),
+    prisma.category.findMany({
+      where: { userId: user.id, isActive: true },
+      orderBy: { name: 'asc' },
+      select: { id: true, name: true },
+    }),
+  ])
 
   if (cards.length === 0) {
     return (
@@ -42,6 +49,7 @@ export default async function ImportarPage({ searchParams }: { searchParams: Par
       </p>
       <StatementWizard
         cards={cards}
+        categories={categories}
         defaultCardId={cardParams(cardParam, cards)}
         today={todayISO()}
       />

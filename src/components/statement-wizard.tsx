@@ -5,28 +5,47 @@ import { useActionState, useState } from 'react'
 import {
   confirmStatementImport,
   parseStatementPreview,
+  type PreviewRow,
   type StatementPreview,
 } from '@/app/actions/imports'
 import { fromCents, parseAmountInput } from '@/lib/money'
 import { Icon } from '@/components/icons'
-import { Badge } from '@/components/ui'
+import { Badge, Money } from '@/components/ui'
+import { suggestCategoryName } from '@/lib/categories-rules'
 
 type CardOption = { id: string; name: string; currency: string; closingDay: number; dueDay: number }
+type CategoryOption = { id: string; name: string }
 
-type EditableRow = NonNullable<StatementPreview['rows']>[number]
-
-export function StatementWizard({ cards, defaultCardId, today }: { cards: CardOption[]; defaultCardId?: string; today: string }) {
+export function StatementWizard({
+  cards,
+  categories,
+  defaultCardId,
+  today,
+}: {
+  cards: CardOption[]
+  categories: CategoryOption[]
+  defaultCardId?: string
+  today: string
+}) {
   const [cardId, setCardId] = useState(defaultCardId ?? cards[0]?.id ?? '')
   const [mode, setMode] = useState<'pdf' | 'text' | 'manual'>('pdf')
   const [text, setText] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<StatementPreview | null>(null)
-  const [rows, setRows] = useState<EditableRow[]>([])
+  const [rows, setRows] = useState<PreviewRow[]>([])
+  const [period, setPeriod] = useState('')
+  const [saveRules, setSaveRules] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [analyzing, setAnalyzing] = useState(false)
   const [state, action, pending] = useActionState(confirmStatementImport, {})
 
   const card = cards.find((item) => item.id === cardId)
+  const included = rows.filter((row) => row.include && !row.excludedReason)
+  const excluded = rows.filter((row) => row.excludedReason)
+  const totalUyu = preview?.meta?.totals?.UYU ?? null
+  const totalUsd = preview?.meta?.totals?.USD ?? null
+  const selectedUyu = included.filter((row) => row.currency === 'UYU').reduce((acc, row) => acc + (row.amountCents ?? 0), 0)
+  const selectedUsd = included.filter((row) => row.currency === 'USD').reduce((acc, row) => acc + (row.amountCents ?? 0), 0)
 
   async function analyze() {
     setError(null)
@@ -34,6 +53,7 @@ export function StatementWizard({ cards, defaultCardId, today }: { cards: CardOp
     try {
       const formData = new FormData()
       formData.set('cardId', cardId)
+      if (period) formData.set('period', period)
       if (mode === 'pdf') {
         if (!file) {
           setError('Elegí un archivo PDF o cambiá a carga manual.')
@@ -54,6 +74,7 @@ export function StatementWizard({ cards, defaultCardId, today }: { cards: CardOp
       }
       setPreview(result)
       setRows(result.rows ?? [])
+      setPeriod(result.meta?.period ?? '')
     } finally {
       setAnalyzing(false)
     }
@@ -66,67 +87,66 @@ export function StatementWizard({ cards, defaultCardId, today }: { cards: CardOp
       meta: {
         closingDate: null,
         dueDate: null,
-        totalAmountCents: null,
-        currency: (card?.currency as 'UYU' | 'USD') ?? 'UYU',
+        nextClosingDate: null,
+        period: null,
         reliability: 'baja',
         warnings: ['Carga manual: completá cada fila con los datos del resumen.'],
+        totals: { UYU: null, USD: null },
+        cardLast4: null,
         linesScanned: 0,
-        linesSkipped: 0,
+        excluded: 0,
       },
       rows: [],
     })
-    setRows([
-      {
-        key: 'manual-1',
-        date: today,
-        merchant: '',
-        amountCents: null,
-        currency: (card?.currency as 'UYU' | 'USD') ?? 'UYU',
-        installmentNumber: null,
-        installments: null,
-        period: null,
-        confidence: 'low',
-        warnings: [],
-        include: true,
-        matches: [],
-      },
-    ])
+    setPeriod('')
+    setRows([blankRow()])
   }
 
-  function updateRow(index: number, patch: Partial<EditableRow>) {
+  function blankRow(): PreviewRow {
+    return {
+      key: `manual-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`,
+      date: today,
+      merchant: '',
+      amountCents: null,
+      currency: (card?.currency as 'UYU' | 'USD') ?? 'UYU',
+      installmentNumber: null,
+      installments: null,
+      period: null,
+      categoryId: null,
+      suggestedCategory: null,
+      confidence: 'low',
+      warnings: [],
+      include: true,
+      matches: [],
+    }
+  }
+
+  function updateRow(index: number, patch: Partial<PreviewRow>) {
     setRows((current) => current.map((row, position) => (position === index ? { ...row, ...patch } : row)))
   }
 
-  function addRow() {
-    setRows((current) => [
-      ...current,
-      {
-        key: `manual-${current.length + 1}-${Date.now()}`,
-        date: today,
-        merchant: '',
-        amountCents: null,
-        currency: (card?.currency as 'UYU' | 'USD') ?? 'UYU',
-        installmentNumber: null,
-        installments: null,
-        period: null,
-        confidence: 'low',
-        warnings: [],
-        include: true,
-        matches: [],
-      },
-    ])
+  function suggestFor(index: number, merchant: string) {
+    const name = suggestCategoryName(merchant)
+    const category = name ? categories.find((item) => item.name === name) : null
+    updateRow(index, { merchant, suggestedCategory: name, categoryId: category?.id ?? null })
   }
 
-  const selected = rows.filter((row) => row.include)
+  function addRow() {
+    setRows((current) => [...current, blankRow()])
+  }
+
   const payload = {
     cardId,
-    period: preview?.meta?.dueDate ? preview.meta.dueDate.slice(0, 7) : null,
+    period: period || null,
     closingDate: preview?.meta?.closingDate ?? null,
     dueDate: preview?.meta?.dueDate ?? null,
-    totalAmount: preview?.meta?.totalAmountCents != null ? fromCents(preview.meta.totalAmountCents) : null,
+    totalAmount: totalUyu != null ? fromCents(totalUyu) : null,
+    totalUyu: totalUyu != null ? fromCents(totalUyu) : null,
+    totalUsd: totalUsd != null ? fromCents(totalUsd) : null,
     fileName: preview?.fileName ?? null,
     fileHash: preview?.fileHash ?? null,
     source: mode === 'manual' ? 'MANUAL' : mode === 'text' ? 'TEXT' : 'PDF',
+    saveRules,
     rows: rows.map((row) => ({
       date: row.date,
       merchant: row.merchant,
@@ -134,8 +154,8 @@ export function StatementWizard({ cards, defaultCardId, today }: { cards: CardOp
       currency: row.currency,
       installments: row.installments ?? 1,
       installmentNumber: row.installmentNumber,
-      period: row.period,
-      include: row.include,
+      categoryId: row.categoryId,
+      include: row.include && !row.excludedReason,
       confidence: row.confidence,
     })),
   }
@@ -151,15 +171,15 @@ export function StatementWizard({ cards, defaultCardId, today }: { cards: CardOp
           </div>
         </div>
         <p className="hint">
-          Las compras importadas ya están en Movimientos y las cuotas futuras en Tarjetas. Los registros marcados
-          como dudosos quedaron con estado “Por revisar”.
+          Las compras están en Movimientos y las cuotas futuras en Tarjetas. Los registros dudosos quedaron
+          con estado “Por revisar”.
         </p>
         <div className="row">
-          <Link href="/movimientos" className="primary-button">
-            Ver movimientos
+          <Link href="/tarjetas" className="primary-button">
+            Ver cuotas y próximo pago
           </Link>
-          <Link href="/tarjetas" className="secondary-button">
-            Ver cuotas
+          <Link href="/movimientos" className="secondary-button">
+            Ver movimientos
           </Link>
           <button
             type="button"
@@ -206,7 +226,7 @@ export function StatementWizard({ cards, defaultCardId, today }: { cards: CardOp
                 ))}
               </select>
               <span className="hint">
-                Cierre día {card?.closingDay} · vencimiento día {card?.dueDay}: se usan para calcular el período de cada compra.
+                Cierre día {card?.closingDay} · vencimiento día {card?.dueDay}
               </span>
             </label>
             <div className="field">
@@ -234,7 +254,7 @@ export function StatementWizard({ cards, defaultCardId, today }: { cards: CardOp
               />
               <Icon name="upload" size={22} />
               <strong>{file ? file.name : 'Subí el PDF del resumen'}</strong>
-              <small>Hasta 10 MB. El archivo se procesa en memoria y no se guarda.</small>
+              <small>Hasta 10 MB. Se procesa en memoria y no se guarda.</small>
             </label>
           ) : mode === 'text' ? (
             <label className="field">
@@ -244,14 +264,14 @@ export function StatementWizard({ cards, defaultCardId, today }: { cards: CardOp
                 style={{ minHeight: 180 }}
                 value={text}
                 onChange={(event) => setText(event.target.value)}
-                placeholder={'Pegá el texto del resumen tal como lo copiaste del PDF\n\n17/06/2025  SUPERMERCADO DISCO  1.234,56'}
+                placeholder={'Pegá el texto del resumen tal como lo copiaste del PDF'}
               />
             </label>
           ) : (
             <div className="stack-sm">
               <p className="hint">
-                Cargá las compras a mano. Es el camino recomendado si el PDF es una imagen o la extracción no es
-                confiable.
+                Cargá las compras a mano. Es el camino recomendado si el PDF es una imagen o la extracción
+                no es confiable.
               </p>
               <button type="button" className="secondary-button" style={{ width: 'fit-content' }} onClick={startManual}>
                 <Icon name="plus" size={15} /> Empezar carga manual
@@ -276,8 +296,8 @@ export function StatementWizard({ cards, defaultCardId, today }: { cards: CardOp
         </div>
 
         <p className="hint">
-          No se conoce el formato exacto del PDF de Itaú: la extracción es heurística y puede fallar. Nada se importa
-          hasta que lo confirmes.
+          El formato del PDF de Itaú se lee por columnas: fecha, tarjeta, comercio, cuota y dos importes
+          (pesos y dólares). Aun así, revisá cada fila antes de confirmar.
         </p>
       </div>
     )
@@ -302,18 +322,16 @@ export function StatementWizard({ cards, defaultCardId, today }: { cards: CardOp
           <div>
             <h2 className="section-title">
               {preview.meta?.reliability === 'alta'
-                ? 'Lectura confiable, igual revisá'
+                ? 'Lectura completa'
                 : preview.meta?.reliability === 'media'
                   ? 'Lectura parcial: revisá cada fila'
                   : 'Lectura poco confiable: completá a mano'}
             </h2>
             <p className="hint">
-              {rows.length} fila{rows.length === 1 ? '' : 's'} detectada{rows.length === 1 ? '' : 's'}
+              {included.length} consumo{included.length === 1 ? '' : 's'} detectado{included.length === 1 ? '' : 's'}
               {preview.meta?.closingDate ? ` · cierre ${preview.meta.closingDate}` : ''}
-              {preview.meta?.dueDate ? ` · vencimiento ${preview.meta.dueDate}` : ''}
-              {preview.meta?.totalAmountCents != null
-                ? ` · total ${fromCents(preview.meta.totalAmountCents)} ${preview.meta.currency}`
-                : ''}
+              {preview.meta?.dueDate ? ` · vence ${preview.meta.dueDate}` : ''}
+              {preview.meta?.cardLast4 ? ` · tarjeta •••• ${preview.meta.cardLast4}` : ''}
             </p>
           </div>
           <div className="row">
@@ -326,6 +344,44 @@ export function StatementWizard({ cards, defaultCardId, today }: { cards: CardOp
           </div>
         </div>
 
+        <div className="field-grid">
+          <label className="field">
+            <span>Período del resumen</span>
+            <input
+              className="input"
+              type="month"
+              value={period}
+              onChange={(event) => setPeriod(event.target.value)}
+            />
+            <span className="hint">
+              Es el mes en que vence este resumen. Las cuotas 2/10, 3/10… se ubican en los meses siguientes.
+            </span>
+          </label>
+          <div className="field">
+            <span className="field-label">Totales del resumen</span>
+            <div className="row" style={{ gap: 14, minHeight: 40, alignItems: 'center' }}>
+              {totalUyu != null ? (
+                <strong>
+                  <Money cents={totalUyu} currency="UYU" />
+                </strong>
+              ) : null}
+              {totalUsd != null ? (
+                <strong>
+                  <Money cents={totalUsd} currency="USD" />
+                </strong>
+              ) : null}
+              {totalUyu == null && totalUsd == null ? <span className="hint">No se detectaron</span> : null}
+            </div>
+            <span className="hint">
+              Suma de lo seleccionado: <Money cents={selectedUyu} currency="UYU" />
+              {selectedUsd > 0 ? <> · <Money cents={selectedUsd} currency="USD" /></> : null}
+              {totalUyu != null || totalUsd != null
+                ? ' · la diferencia con el total del resumen son pagos o créditos ya aplicados por el banco.'
+                : ''}
+            </span>
+          </div>
+        </div>
+
         {preview.meta?.warnings.map((warning) => (
           <p className="review-flag" key={warning}>
             <Icon name="warning" size={13} /> {warning}
@@ -335,121 +391,168 @@ export function StatementWizard({ cards, defaultCardId, today }: { cards: CardOp
 
       <div className="panel">
         <div className="between" style={{ marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
-          <h2 className="section-title">Compras detectadas</h2>
+          <h2 className="section-title">Consumos del resumen</h2>
           <div className="row">
             <button type="button" className="ghost-button small-button" onClick={addRow}>
               <Icon name="plus" size={14} /> Agregar fila
             </button>
             <span className="hint">
-              {selected.length} de {rows.length} seleccionadas
+              {included.length} de {rows.length} seleccionadas
             </span>
           </div>
         </div>
 
-        {rows.length === 0 ? (
+        {included.length === 0 && excluded.length === 0 ? (
           <div className="empty-state">
-            <strong>No se detectaron compras</strong>
+            <strong>No se detectaron consumos</strong>
             Agregá las filas a mano con el botón “Agregar fila”.
           </div>
         ) : (
           <div className="stack-sm">
-            {rows.map((row, index) => (
-              <div className={`import-row ${row.matches.length > 0 ? 'needs-review' : ''}`} key={row.key}>
-                <div className="import-grid">
-                  <label className="checkbox" style={{ margin: 0 }}>
+            {rows.map((row, index) =>
+              row.excludedReason ? null : (
+                <div className={`import-row ${row.matches.length > 0 ? 'needs-review' : ''}`} key={row.key}>
+                  <div className="import-grid">
+                    <label className="checkbox" style={{ margin: 0 }}>
+                      <input
+                        type="checkbox"
+                        checked={row.include}
+                        onChange={(event) => updateRow(index, { include: event.target.checked })}
+                        aria-label={`Incluir ${row.merchant || 'fila'}`}
+                      />
+                      <span className="sr-only">Incluir</span>
+                    </label>
                     <input
-                      type="checkbox"
-                      checked={row.include}
-                      onChange={(event) => updateRow(index, { include: event.target.checked })}
-                      aria-label={`Incluir ${row.merchant || 'fila'}`}
+                      className="input"
+                      type="date"
+                      value={row.date ?? ''}
+                      onChange={(event) => updateRow(index, { date: event.target.value })}
+                      aria-label="Fecha"
                     />
-                    <span className="sr-only">Incluir</span>
-                  </label>
-                  <input
-                    className="input"
-                    type="date"
-                    value={row.date ?? ''}
-                    onChange={(event) => updateRow(index, { date: event.target.value })}
-                    aria-label="Fecha"
-                  />
-                  <input
-                    className="input"
-                    value={row.merchant}
-                    onChange={(event) => updateRow(index, { merchant: event.target.value })}
-                    placeholder="Comercio"
-                    aria-label="Comercio"
-                  />
-                  <input
-                    className="input amount"
-                    value={row.amountCents != null ? fromCents(row.amountCents) : ''}
-                    onChange={(event) => updateRow(index, { amountCents: parseAmountInput(event.target.value) })}
-                    placeholder="0,00"
-                    inputMode="decimal"
-                    aria-label="Importe"
-                  />
-                  <select
-                    className="select"
-                    value={row.currency ?? card?.currency ?? 'UYU'}
-                    onChange={(event) => updateRow(index, { currency: event.target.value as 'UYU' | 'USD' })}
-                    aria-label="Moneda"
-                  >
-                    <option value="UYU">UYU</option>
-                    <option value="USD">USD</option>
-                  </select>
-                  <input
-                    className="input"
-                    type="number"
-                    min={1}
-                    max={60}
-                    value={row.installments ?? 1}
-                    onChange={(event) => updateRow(index, { installments: Number(event.target.value) || 1 })}
-                    aria-label="Cuotas"
-                    title="Cantidad de cuotas"
-                  />
-                  <input
-                    className="input"
-                    value={row.period ?? ''}
-                    onChange={(event) => updateRow(index, { period: event.target.value || null })}
-                    placeholder="AAAA-MM"
-                    aria-label="Período del resumen"
-                    title="Período del resumen (vacío = calcular con el cierre)"
-                  />
-                  <button
-                    type="button"
-                    className="icon-button"
-                    onClick={() => setRows((current) => current.filter((_, position) => position !== index))}
-                    aria-label="Quitar fila"
-                    title="Quitar fila"
-                  >
-                    <Icon name="trash" size={14} />
-                  </button>
-                </div>
+                    <input
+                      className="input"
+                      value={row.merchant}
+                      onChange={(event) => suggestFor(index, event.target.value)}
+                      placeholder="Comercio"
+                      aria-label="Comercio"
+                    />
+                    <input
+                      className="input amount"
+                      value={row.amountCents != null ? fromCents(row.amountCents) : ''}
+                      onChange={(event) => updateRow(index, { amountCents: parseAmountInput(event.target.value) })}
+                      placeholder="0,00"
+                      inputMode="decimal"
+                      aria-label="Importe"
+                    />
+                    <select
+                      className="select"
+                      value={row.currency}
+                      onChange={(event) => updateRow(index, { currency: event.target.value as 'UYU' | 'USD' })}
+                      aria-label="Moneda"
+                    >
+                      <option value="UYU">UYU</option>
+                      <option value="USD">USD</option>
+                    </select>
+                    <input
+                      className="input"
+                      type="number"
+                      min={1}
+                      max={60}
+                      value={row.installments ?? 1}
+                      onChange={(event) => updateRow(index, { installments: Number(event.target.value) || 1 })}
+                      aria-label="Cuotas"
+                      title="Cantidad de cuotas"
+                    />
+                    <select
+                      className="select"
+                      value={row.categoryId ?? ''}
+                      onChange={(event) => updateRow(index, { categoryId: event.target.value || null })}
+                      aria-label="Categoría"
+                    >
+                      <option value="">Sin categorizar</option>
+                      {categories.map((category) => (
+                        <option key={category.id} value={category.id}>
+                          {category.name}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      className="icon-button"
+                      onClick={() => setRows((current) => current.filter((_, position) => position !== index))}
+                      aria-label="Quitar fila"
+                      title="Quitar fila"
+                    >
+                      <Icon name="trash" size={14} />
+                    </button>
+                  </div>
 
-                <div className="row" style={{ marginTop: 6, gap: 8, flexWrap: 'wrap' }}>
-                  <Badge tone={row.confidence === 'high' ? 'ok' : row.confidence === 'medium' ? 'warn' : 'danger'}>
-                    {row.confidence === 'high' ? 'Datos completos' : row.confidence === 'medium' ? 'Revisar' : 'Incompleta'}
-                  </Badge>
-                  {row.installmentNumber ? (
-                    <Badge tone="info">
-                      Cuota {row.installmentNumber} de {row.installments}
+                  <div className="row" style={{ marginTop: 6, gap: 8, flexWrap: 'wrap' }}>
+                    <Badge tone={row.confidence === 'high' ? 'ok' : row.confidence === 'medium' ? 'warn' : 'danger'}>
+                      {row.confidence === 'high' ? 'Datos completos' : row.confidence === 'medium' ? 'Revisar' : 'Incompleta'}
                     </Badge>
-                  ) : null}
-                  {row.warnings.map((warning) => (
-                    <span className="review-flag" key={warning}>
-                      <Icon name="warning" size={12} /> {warning}
-                    </span>
-                  ))}
-                  {row.matches.map((match) => (
-                    <span key={match.expenseId} className="review-flag">
-                      <Icon name="info" size={12} /> Posible duplicado ({match.confidence}): {match.merchant} ·{' '}
-                      {fromCents(match.amountCents)} · {match.date}
-                    </span>
-                  ))}
+                    {row.installmentNumber ? (
+                      <Badge tone="info">
+                        Cuota {row.installmentNumber} de {row.installments}
+                        {row.installments && row.installmentNumber < row.installments
+                          ? ` · quedan ${row.installments - row.installmentNumber + 1}`
+                          : ''}
+                      </Badge>
+                    ) : null}
+                    {row.suggestedCategory && !row.categoryId ? (
+                      <span className="hint">Sugerencia: {row.suggestedCategory}</span>
+                    ) : null}
+                    {row.warnings.map((warning) => (
+                      <span className="review-flag" key={warning}>
+                        <Icon name="warning" size={12} /> {warning}
+                      </span>
+                    ))}
+                    {row.matches.map((match) => (
+                      <span key={match.expenseId} className="review-flag">
+                        <Icon name="info" size={12} /> Posible duplicado ({match.confidence}): {match.merchant} ·{' '}
+                        {fromCents(match.amountCents)} · {match.date}
+                      </span>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ),
+            )}
           </div>
         )}
+
+        {excluded.length > 0 ? (
+          <details className="disclosure" style={{ marginTop: 14 }}>
+            <summary>
+              <span>
+                <Icon name="info" size={15} /> Líneas omitidas ({excluded.length})
+              </span>
+              <Icon name="chevron" size={15} />
+            </summary>
+            <div className="disclosure-body">
+              {excluded.map((row) => (
+                <div className="list-row" key={row.key}>
+                  <div className="item-main">
+                    <strong>{row.merchant}</strong>
+                    <small>
+                      {row.date ?? 'sin fecha'} · {row.excludedReason}
+                    </small>
+                  </div>
+                  {row.amountCents != null ? (
+                    <div className="item-amount">
+                      <strong>
+                        <Money cents={row.amountCents} currency={row.currency} />
+                      </strong>
+                    </div>
+                  ) : null}
+                </div>
+              ))}
+              <p className="hint">
+                Pagos, saldos, ajustes de IVA y devoluciones no se importan como consumos para no duplicar
+                ni distorsionar las estadísticas.
+              </p>
+            </div>
+          </details>
+        ) : null}
       </div>
 
       <form action={action} className="panel">
@@ -460,16 +563,22 @@ export function StatementWizard({ cards, defaultCardId, today }: { cards: CardOp
           </p>
         ) : null}
         <div className="between" style={{ flexWrap: 'wrap', gap: 10 }}>
-          <p className="hint" style={{ maxWidth: 560 }}>
-            Se importan sólo las filas tildadas. Si una compra ya existe (por correo o carga manual), se omite para
-            no duplicar consumos ni cuotas. Las filas “Incompleta” quedan para revisión.
-          </p>
+          <div>
+            <p className="hint" style={{ maxWidth: 560 }}>
+              Se importan sólo las filas tildadas. Si una compra ya existe se omite para no duplicar
+              consumos ni cuotas. Las filas “Incompleta” quedan para revisión.
+            </p>
+            <label className="checkbox">
+              <input type="checkbox" checked={saveRules} onChange={(event) => setSaveRules(event.target.checked)} />
+              <span>Recordar la categoría de cada comercio para próximos gastos</span>
+            </label>
+          </div>
           <div className="row">
             <Link href="/ajustes" className="ghost-button">
               Cancelar
             </Link>
-            <button type="submit" className="primary-button" disabled={pending || selected.length === 0}>
-              {pending ? 'Importando…' : `Importar ${selected.length} compra${selected.length === 1 ? '' : 's'}`}
+            <button type="submit" className="primary-button" disabled={pending || included.length === 0}>
+              {pending ? 'Importando…' : `Importar ${included.length} compra${included.length === 1 ? '' : 's'}`}
             </button>
           </div>
         </div>
