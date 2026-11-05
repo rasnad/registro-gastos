@@ -310,6 +310,9 @@ export function BillForm({
   }
 }) {
   const [amountType, setAmountType] = useState<'FIXED' | 'RANGE'>(defaults?.amountType ?? 'FIXED')
+  const [frequency, setFrequency] = useState(defaults?.frequency ?? 'MONTHLY')
+  const [startMonth, setStartMonth] = useState((defaults?.startDate ?? today).slice(0, 7))
+  const [endMonth, setEndMonth] = useState(defaults?.endDate ? defaults.endDate.slice(0, 7) : '')
   const [currency, setCurrency] = useState<CurrencyCode>(defaults?.currency ?? 'UYU')
   const [paymentSource, setPaymentSource] = useState<'ACCOUNT' | 'CREDIT_CARD'>(defaults?.paymentSource ?? 'ACCOUNT')
   const defaultAccountFor = (cur: CurrencyCode) =>
@@ -343,7 +346,12 @@ export function BillForm({
         </label>
         <label className="field">
           <span>Frecuencia</span>
-          <select className="select" name="frequency" defaultValue={defaults?.frequency ?? 'MONTHLY'}>
+          <select
+            className="select"
+            name="frequency"
+            value={frequency}
+            onChange={(event) => setFrequency(event.target.value)}
+          >
             <option value="MONTHLY">Mensual</option>
             <option value="BIMONTHLY">Bimestral</option>
             <option value="QUARTERLY">Trimestral</option>
@@ -444,31 +452,40 @@ export function BillForm({
           Se imputa al resumen de la tarjeta, no al saldo bancario. No se cuenta dos veces.
         </p>
       ) : null}
-      <div className="field-grid">
-        <label className="field">
-          <span>Primer mes de pago</span>
-          <input
-            className="input"
-            type="month"
-            name="startDate"
-            required
-            defaultValue={(defaults?.startDate ?? today).slice(0, 7)}
-          />
-          <span className="hint">
-            Las cuentas bimestrales, trimestrales o anuales cuentan desde este mes.
-          </span>
-        </label>
-        <label className="field">
-          <span>Último mes (opcional)</span>
-          <input
-            className="input"
-            type="month"
-            name="endDate"
-            defaultValue={defaults?.endDate ? defaults.endDate.slice(0, 7) : ''}
-          />
-          <span className="hint">Dejalo vacío si la cuenta no tiene fin.</span>
-        </label>
-      </div>
+      {frequency === 'MONTHLY' ? (
+        <>
+          <input type="hidden" name="startDate" value={startMonth} />
+          <input type="hidden" name="endDate" value={endMonth} />
+        </>
+      ) : (
+        <div className="field-grid">
+          <label className="field">
+            <span>Primer mes de pago</span>
+            <input
+              className="input"
+              type="month"
+              name="startDate"
+              required
+              value={startMonth}
+              onChange={(event) => setStartMonth(event.target.value)}
+            />
+            <span className="hint">
+              Las cuentas bimestrales, trimestrales o anuales cuentan desde este mes.
+            </span>
+          </label>
+          <label className="field">
+            <span>Último mes (opcional)</span>
+            <input
+              className="input"
+              type="month"
+              name="endDate"
+              value={endMonth}
+              onChange={(event) => setEndMonth(event.target.value)}
+            />
+            <span className="hint">Dejalo vacío si la cuenta no tiene fin.</span>
+          </label>
+        </div>
+      )}
       <label className="field">
         <span>Notas (opcional)</span>
         <textarea className="textarea" name="notes" defaultValue={defaults?.notes ?? ''} />
