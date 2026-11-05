@@ -5,7 +5,7 @@ import { prisma } from '@/lib/db'
 import { requireUser } from '@/lib/auth'
 import { fromCents } from '@/lib/money'
 import { revalidateFinance } from '@/lib/revalidate'
-import { bool, cents, currency, dateValue, dayOfMonth, isoDate, monthKey, monthOrDate, optStr, str } from '@/lib/validation'
+import { bool, cents, currency, dateValue, dayOfMonth, int, isoDate, monthKey, monthOrDate, optStr, str } from '@/lib/validation'
 import type { ActionState } from '@/lib/action-state'
 
 const AMOUNT_TYPES = ['FIXED', 'RANGE'] as const
@@ -18,6 +18,7 @@ type ParsedBill = {
   amountFixedCents: number | null
   amountMinCents: number | null
   amountMaxCents: number | null
+  sharePercent: number
   currency: 'UYU' | 'USD'
   frequency: (typeof FREQUENCIES)[number]
   dueDay: number
@@ -39,6 +40,10 @@ async function parseBill(formData: FormData, userId: string): Promise<{ data?: P
   const startDate = monthOrDate(str(formData, 'startDate'), 'first')
   const endDateRaw = str(formData, 'endDate')
   const endDate = endDateRaw ? monthOrDate(endDateRaw, 'last') : null
+  const sharePercent = int(formData, 'sharePercent', 100)
+  if (sharePercent < 1 || sharePercent > 100) {
+    return { error: 'El porcentaje debe estar entre 1 y 100.' }
+  }
 
   if (!name) return { error: 'Ponele un nombre a la cuenta.' }
   if (!cur) return { error: 'Elegí la moneda.' }
@@ -95,6 +100,7 @@ async function parseBill(formData: FormData, userId: string): Promise<{ data?: P
       amountFixedCents,
       amountMinCents,
       amountMaxCents,
+      sharePercent,
       currency: cur,
       frequency: frequency as (typeof FREQUENCIES)[number],
       dueDay: dayOfMonth(formData, 'dueDay', 1),
@@ -123,6 +129,7 @@ export async function createBill(_prev: ActionState, formData: FormData): Promis
       amountFixed: bill.amountFixedCents === null ? null : fromCents(bill.amountFixedCents),
       amountMin: bill.amountMinCents === null ? null : fromCents(bill.amountMinCents),
       amountMax: bill.amountMaxCents === null ? null : fromCents(bill.amountMaxCents),
+      sharePercent: bill.sharePercent,
       currency: bill.currency,
       frequency: bill.frequency,
       dueDay: bill.dueDay,
@@ -158,6 +165,7 @@ export async function updateBill(_prev: ActionState, formData: FormData): Promis
       amountFixed: bill.amountFixedCents === null ? null : fromCents(bill.amountFixedCents),
       amountMin: bill.amountMinCents === null ? null : fromCents(bill.amountMinCents),
       amountMax: bill.amountMaxCents === null ? null : fromCents(bill.amountMaxCents),
+      sharePercent: bill.sharePercent,
       currency: bill.currency,
       frequency: bill.frequency,
       dueDay: bill.dueDay,

@@ -217,6 +217,9 @@ Tablas principales: `User`, `Account`, `Income`, `BalanceAdjustment`, `Expense`,
 9. **Cuentas recurrentes** ⇒ la frecuencia (mensual, bimestral, trimestral…) se cuenta desde el
    **primer mes de pago** elegido al crearla, no desde el mes actual. Si el primer mes es futuro, la
    cuenta no aparece como vencida antes de tiempo.
+   Cada cuenta tiene un **porcentaje** (default 100%) para gastos compartidos: cargás el importe total y
+   el saldo, las proyecciones y los totales usan sólo tu parte. El total y el porcentaje se muestran
+   en la lista; el pago se registra con el importe total.
 10. **Cuenta predeterminada** ⇒ una cuenta puede marcarse como predeterminada; se preselecciona en los
     formularios de gasto, cuenta fija, ingreso, ajuste, aporte y pago de resumen (si la moneda coincide).
 
@@ -309,9 +312,10 @@ Cobertura de los puntos críticos:
 | Proyección | Mes en curso usa saldo real y no re-resta lo ya gastado; rangos variables; datos faltantes explícitos. |
 | Objetivos | Asignación conjunta por prioridad, sin asignar el mismo margen dos veces. |
 | Pago USD desde cuenta UYU | Convierte con la cotización configurada, debita pesos y salda la cuota en dólares. |
+| Gastos compartidos | El porcentaje de la cuenta fija ajusta saldo, compromisos y proyección sin cambiar el total cargado. |
 | Parsers | Extracción de avisos de consumo y de resúmenes, columnas pesos/dólares, cuotas N/M, líneas omitidas, datos faltantes e instrucciones sospechosas ignoradas. |
 
-Resultado: **63/63 tests OK** y **build de producción OK**. El smoke test E2E (login → alta de gasto →
+Resultado: **66/66 tests OK** y **build de producción OK**. El smoke test E2E (login → alta de gasto →
 verificación de saldo → borrado → importación manual → estado "por revisar") pasó sin errores de
 consola.
 

@@ -353,6 +353,9 @@ model RecurringBill {
   amountMin     Decimal?     @db.Decimal(14, 2)
   amountMax     Decimal?     @db.Decimal(14, 2)
   currency      Currency
+  // Porcentaje del gasto que te corresponde (gastos compartidos en pareja).
+  // Los importes se cargan por el total; el saldo usa este porcentaje.
+  sharePercent  Int          @default(100)
   frequency     Recurrence   @default(MONTHLY)
   dueDay        Int
   paymentSource PaymentSource @default(ACCOUNT)

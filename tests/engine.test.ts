@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   accountBalanceAt,
+  billExpectedCents,
+  billsInMonth,
   buildOverview,
   computeCurrencySummary,
   planGoals,
@@ -210,6 +212,7 @@ describe('cuentas recurrentes', () => {
       amountFixedCents: 1_000,
       amountMinCents: null,
       amountMaxCents: null,
+      sharePercent: 100,
       frequency: 'MONTHLY',
       dueDay: 20,
       paymentSource: 'CREDIT_CARD',
@@ -241,6 +244,7 @@ describe('cuentas recurrentes', () => {
       amountFixedCents: null,
       amountMinCents: 2_000,
       amountMaxCents: 4_000,
+      sharePercent: 100,
       frequency: 'MONTHLY',
       dueDay: 25,
       paymentSource: 'ACCOUNT',
@@ -399,6 +403,7 @@ describe('regresión: cuentas con tarjeta y pagos de resumen', () => {
       amountFixedCents: 1_000,
       amountMinCents: null,
       amountMaxCents: null,
+      sharePercent: 100,
       frequency: 'MONTHLY',
       dueDay: 20,
       paymentSource: 'CREDIT_CARD',
@@ -499,5 +504,68 @@ describe('pago de resumen en dólares desde una cuenta en pesos', () => {
       accountId: 'acc-uyu',
     })
     expect(accountBalanceAt(input.accounts[0], input)).toBe(1_480_000 - 40_000)
+  })
+})
+
+
+describe('gastos compartidos: porcentaje de la cuenta', () => {
+  function billWithShare(sharePercent: number) {
+    return {
+      id: 'share-bill',
+      name: 'Alquiler',
+      categoryId: null,
+      currency: 'UYU' as const,
+      amountType: 'FIXED' as const,
+      amountFixedCents: 480_000,
+      amountMinCents: null,
+      amountMaxCents: null,
+      sharePercent,
+      frequency: 'MONTHLY',
+      dueDay: 5,
+      paymentSource: 'ACCOUNT' as const,
+      accountId: 'acc-uyu',
+      creditCardId: null,
+      startDate: '2025-01-01',
+      endDate: null,
+      isActive: true,
+    }
+  }
+
+  it('el importe que impacta es el total por el porcentaje', () => {
+    expect(billExpectedCents(billWithShare(50))).toBe(240_000)
+    expect(billExpectedCents(billWithShare(100))).toBe(480_000)
+    expect(billExpectedCents(billWithShare(33))).toBe(158_400)
+  })
+
+  it('el saldo descuenta sólo la parte del usuario al pagar la cuenta', () => {
+    const input = baseInput()
+    const bill = billWithShare(25)
+    input.bills.push(bill)
+    input.billOccurrences.push({
+      id: 'occ-1',
+      billId: bill.id,
+      period: '2025-06',
+      dueDate: '2025-06-05',
+      amountMinCents: null,
+      amountMaxCents: null,
+      amountActualCents: 480_000,
+      status: 'PAID',
+      paidAt: '2025-06-05',
+      accountId: 'acc-uyu',
+      currency: 'UYU',
+    })
+    expect(accountBalanceAt(input.accounts[0], input)).toBe(1_480_000 - 120_000)
+  })
+
+  it('la proyección y los compromisos usan la parte del usuario', () => {
+    const input = baseInput()
+    input.bills.push(billWithShare(50))
+    const june = billsInMonth(input, '2025-06')
+    expect(june[0].expectedCents).toBe(240_000)
+    expect(june[0].minCents).toBe(240_000)
+    expect(june[0].maxCents).toBe(240_000)
+
+    const flow = projectMonths(input, 'UYU', 3).find((item) => item.period === '2025-06')!
+    expect(flow.billsCents).toBe(240_000)
   })
 })

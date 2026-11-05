@@ -10,6 +10,7 @@ export type MonthBillItem = {
   amountCents: number
   currency: CurrencyCode
   frequency: string
+  sharePercent: number
   chargedToCard: boolean
   estimated: boolean
   paid: boolean
@@ -91,6 +92,7 @@ export function MonthKpis({ months }: { months: MonthKpi[] }) {
                         <span className="kpi-popover-name">
                           {item.name}
                           {item.chargedToCard ? <em> · tarjeta</em> : null}
+                          {item.sharePercent < 100 ? <em> · {item.sharePercent}%</em> : null}
                           {item.estimated ? <em> · estimado</em> : null}
                         </span>
                         <Money cents={item.amountCents} currency={item.currency} />

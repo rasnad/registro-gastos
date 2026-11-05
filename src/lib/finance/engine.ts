@@ -125,6 +125,7 @@ export type BillSnapshot = {
   amountFixedCents: number | null
   amountMinCents: number | null
   amountMaxCents: number | null
+  sharePercent: number
   frequency: string
   dueDay: number
   paymentSource: PaymentSource
@@ -213,7 +214,14 @@ export function incomeReceivedUntil(income: IncomeSnapshot, asOf: ISODate): numb
   return income.amountCents
 }
 
-export function billExpectedCents(
+/** Aplica el porcentaje que te corresponde a un importe total. */
+export function applyShare(cents: number, sharePercent: number): number {
+  const percent = Math.min(100, Math.max(0, sharePercent ?? 100))
+  return Math.round((cents * percent) / 100)
+}
+
+/** Importe total cargado (sin aplicar el porcentaje). */
+export function billTotalCents(
   bill: BillSnapshot,
   occurrence?: BillOccurrenceSnapshot | null,
 ): number {
@@ -222,6 +230,14 @@ export function billExpectedCents(
   const min = occurrence?.amountMinCents ?? bill.amountMinCents ?? 0
   const max = occurrence?.amountMaxCents ?? bill.amountMaxCents ?? min
   return Math.round((min + max) / 2)
+}
+
+/** Importe que impacta tu saldo (total × porcentaje). */
+export function billExpectedCents(
+  bill: BillSnapshot,
+  occurrence?: BillOccurrenceSnapshot | null,
+): number {
+  return applyShare(billTotalCents(bill, occurrence), bill.sharePercent)
 }
 
 export function billRangeCents(
@@ -372,8 +388,8 @@ export function billsInMonth(
       occurrence,
       dueDate,
       expectedCents: billExpectedCents(bill, occurrence),
-      minCents: range.min,
-      maxCents: range.max,
+      minCents: applyShare(range.min, bill.sharePercent),
+      maxCents: applyShare(range.max, bill.sharePercent),
       exact: range.exact,
       paid,
       chargedToCard,
@@ -425,8 +441,8 @@ export function cardChargedBillsForPeriod(
         occurrence,
         dueDate,
         expectedCents: billExpectedCents(bill, occurrence),
-        minCents: range.min,
-        maxCents: range.max,
+        minCents: applyShare(range.min, bill.sharePercent),
+        maxCents: applyShare(range.max, bill.sharePercent),
         exact: range.exact,
         paid: false,
         chargedToCard: true,

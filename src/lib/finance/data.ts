@@ -174,6 +174,7 @@ export async function loadFinanceData(
     amountFixedCents: bill.amountFixed != null ? toCents(bill.amountFixed) : null,
     amountMinCents: bill.amountMin != null ? toCents(bill.amountMin) : null,
     amountMaxCents: bill.amountMax != null ? toCents(bill.amountMax) : null,
+    sharePercent: bill.sharePercent,
     frequency: bill.frequency,
     dueDay: bill.dueDay,
     paymentSource: bill.paymentSource,

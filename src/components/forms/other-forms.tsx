@@ -285,6 +285,7 @@ export function BillForm({
     amountFixed: string | null
     amountMin: string | null
     amountMax: string | null
+    sharePercent: number
     currency: CurrencyCode
     frequency: string
     dueDay: number
@@ -394,6 +395,23 @@ export function BillForm({
           </label>
         </div>
       )}
+      <label className="field">
+        <span>Mi porcentaje del gasto</span>
+        <input
+          className="input"
+          type="number"
+          name="sharePercent"
+          min={1}
+          max={100}
+          step={1}
+          defaultValue={defaults?.sharePercent ?? 100}
+        />
+        <span className="hint">
+          Si comparten el gasto con tu pareja, poné tu parte. El importe que cargás es el total; el saldo
+          usa este porcentaje.
+        </span>
+      </label>
+
       <div className="field-grid">
         <label className="field">
           <span>Se paga con</span>

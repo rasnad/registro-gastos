@@ -6,12 +6,13 @@ import {
   billChargePeriod,
   billExpectedCents,
   billRangeCents,
+  billTotalCents,
   billsInMonth,
   cardChargedBillsForPeriod,
   type BillSnapshot,
 } from '@/lib/finance/engine'
 import { addMonthsKey, dateInMonth, isRecurringInPeriod, monthLabel, recurrenceStepMonths, todayISO } from '@/lib/period'
-import { fromCents, sumCents, type CurrencyCode } from '@/lib/money'
+import { formatMoney, fromCents, sumCents, type CurrencyCode } from '@/lib/money'
 import { Money, Badge, SectionHead, EmptyState } from '@/components/ui'
 import { Icon } from '@/components/icons'
 import { Dialog } from '@/components/dialog'
@@ -55,6 +56,7 @@ export default async function CuentasPage() {
         amountCents: item.expectedCents,
         currency: item.bill.currency as CurrencyCode,
         frequency: item.bill.frequency,
+        sharePercent: item.bill.sharePercent,
         chargedToCard: false,
         estimated: !item.exact,
         paid: item.paid,
@@ -64,6 +66,7 @@ export default async function CuentasPage() {
         amountCents: item.expectedCents,
         currency: item.bill.currency as CurrencyCode,
         frequency: item.bill.frequency,
+        sharePercent: item.bill.sharePercent,
         chargedToCard: true,
         estimated: !item.exact,
         paid: data.input.cardPayments.some(
@@ -140,6 +143,7 @@ export default async function CuentasPage() {
               data.input.billOccurrences.find((item) => item.billId === bill.id && item.period === current) ?? null
             const dueDate = occurrence?.dueDate ?? dateInMonth(current, bill.dueDay)
             const expected = snapshot ? billExpectedCents(snapshot, occurrence) : 0
+            const totalCents = snapshot ? billTotalCents(snapshot, occurrence) : 0
             const range = snapshot ? billRangeCents(snapshot, occurrence) : { min: 0, max: 0, exact: true }
             const paid = occurrence?.status === 'PAID'
             const chargedToCard = bill.paymentSource === 'CREDIT_CARD'
@@ -165,6 +169,7 @@ export default async function CuentasPage() {
                       {!bill.isActive ? <Badge tone="neutral">Inactiva</Badge> : null}
                       {chargedToCard ? <Badge tone="info">Tarjeta</Badge> : null}
                       {bill.amountType === 'RANGE' ? <Badge tone="warn">Variable</Badge> : null}
+                      <Badge tone={bill.sharePercent < 100 ? 'info' : 'neutral'}>{bill.sharePercent}%</Badge>
                     </strong>
                     <small>
                       {bill.category?.name ?? 'Sin categorizar'} · vence el día {bill.dueDay} ·{' '}
@@ -181,6 +186,9 @@ export default async function CuentasPage() {
                       {monthLabel(bill.startDate.toISOString().slice(0, 7))}
                       {bill.account ? ` · ${bill.account.name}` : ''}
                       {bill.creditCard ? ` · ${bill.creditCard.name}` : ''}
+                      {bill.sharePercent < 100
+                        ? ` · total ${formatMoney(totalCents, bill.currency)} (tu parte ${bill.sharePercent}%)`
+                        : ''}
                     </small>
                     {!appliesThisMonth ? (
                       <small style={{ color: 'var(--muted-2)' }}>No corresponde a este mes.</small>
@@ -192,7 +200,7 @@ export default async function CuentasPage() {
 
                   <div className="item-amount">
                     <strong>
-                      <Money cents={paid ? occurrence?.amountActualCents ?? expected : expected} currency={bill.currency} />
+                      <Money cents={expected} currency={bill.currency} />
                     </strong>
                     {paid ? (
                       <span className="paid">Pagada</span>
@@ -236,7 +244,7 @@ export default async function CuentasPage() {
                         }}
                         accounts={options.accounts}
                         period={current}
-                        defaultAmount={fromCents(expected)}
+                        defaultAmount={fromCents(totalCents)}
                         chargedToCard={chargedToCard}
                       />
                     </Dialog>
@@ -249,7 +257,7 @@ export default async function CuentasPage() {
                       title={`Importe real de ${bill.name}`}
                       description="Reemplaza el rango estimado en la proyección."
                     >
-                      <BillActualForm billId={bill.id} period={current} defaultAmount={fromCents(expected)} />
+                      <BillActualForm billId={bill.id} period={current} defaultAmount={fromCents(totalCents)} />
                     </Dialog>
                   ) : null}
                   <Dialog
@@ -271,6 +279,7 @@ export default async function CuentasPage() {
                         amountFixed: bill.amountFixed ? fromCents(Math.round(Number(bill.amountFixed) * 100)) : null,
                         amountMin: bill.amountMin ? fromCents(Math.round(Number(bill.amountMin) * 100)) : null,
                         amountMax: bill.amountMax ? fromCents(Math.round(Number(bill.amountMax) * 100)) : null,
+                        sharePercent: bill.sharePercent,
                         currency: bill.currency,
                         frequency: bill.frequency,
                         dueDay: bill.dueDay,
