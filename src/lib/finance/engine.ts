@@ -539,8 +539,8 @@ export function computeCurrencySummary(
   if (!input.accounts.some((a) => a.currency === currency)) {
     missing.push('No hay cuentas con saldo registradas en esta moneda.')
   }
-  if (monthIncomes.length === 0 && availableCents <= 0) {
-    missing.push('No registraste ingresos para este mes y no hay saldo en cuentas.')
+  if (monthIncomes.length === 0 && (availableCents <= 0 || input.incomes.length === 0)) {
+    missing.push('No registraste ingresos para este mes.')
   }
   if (future.length === 0 && input.installments.length === 0 && input.expenses.some((e) => e.creditCardId)) {
     missing.push('Hay compras con tarjeta sin cuotas generadas.')
