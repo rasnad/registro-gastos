@@ -43,7 +43,9 @@ export default async function CuentasPage() {
   const upcomingMonths = [current, addMonthsKey(current, 1), addMonthsKey(current, 2)]
 
   const monthSummaries: MonthKpi[] = upcomingMonths.map((month) => {
-    const bankBills = billsInMonth(data.input, month).filter((item) => !item.chargedToCard)
+    const bankBills = billsInMonth(data.input, month, { includePaid: true }).filter(
+      (item) => !item.chargedToCard,
+    )
     const cardBills = (['UYU', 'USD'] as CurrencyCode[]).flatMap((cur) =>
       cardChargedBillsForPeriod(data.input, cur, month),
     )
@@ -55,6 +57,7 @@ export default async function CuentasPage() {
         frequency: item.bill.frequency,
         chargedToCard: false,
         estimated: !item.exact,
+        paid: item.paid,
       })),
       ...cardBills.map((item) => ({
         name: item.bill.name,
@@ -63,8 +66,16 @@ export default async function CuentasPage() {
         frequency: item.bill.frequency,
         chargedToCard: true,
         estimated: !item.exact,
+        paid: data.input.cardPayments.some(
+          (payment) =>
+            payment.creditCardId === item.bill.creditCardId &&
+            payment.period === month &&
+            payment.currency === item.bill.currency,
+        ),
       })),
     ].sort((first, second) => {
+      // Primero las pendientes, después las pagadas.
+      if (first.paid !== second.paid) return first.paid ? 1 : -1
       const firstMonthly = first.frequency === 'MONTHLY' ? 1 : 0
       const secondMonthly = second.frequency === 'MONTHLY' ? 1 : 0
       if (firstMonthly !== secondMonthly) return firstMonthly - secondMonthly
@@ -74,8 +85,12 @@ export default async function CuentasPage() {
     return {
       period: month,
       totals: {
-        UYU: sumCents(items.filter((item) => item.currency === 'UYU').map((item) => item.amountCents)),
-        USD: sumCents(items.filter((item) => item.currency === 'USD').map((item) => item.amountCents)),
+        UYU: sumCents(
+          items.filter((item) => !item.paid && item.currency === 'UYU').map((item) => item.amountCents),
+        ),
+        USD: sumCents(
+          items.filter((item) => !item.paid && item.currency === 'USD').map((item) => item.amountCents),
+        ),
       },
       items,
       note: month === current ? 'Incluye lo pendiente de este mes' : undefined,

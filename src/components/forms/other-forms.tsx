@@ -123,7 +123,6 @@ export function CardPaymentForm({
   usdRateCents: number
 }) {
   const [cardId, setCardId] = useState(defaultCardId ?? cards[0]?.id ?? '')
-  const card = cards.find((item) => item.id === cardId)
   const [payCurrency, setPayCurrency] = useState<CurrencyCode>(defaultCurrency ?? 'UYU')
   const [amountText, setAmountText] = useState(defaultAmount ?? '')
   const defaultPayableAccount = (cur: CurrencyCode) =>

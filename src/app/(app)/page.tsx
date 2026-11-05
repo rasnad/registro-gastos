@@ -1,36 +1,23 @@
 import Link from 'next/link'
 import type { Metadata } from 'next'
 import { requireUser } from '@/lib/auth'
-import { prisma } from '@/lib/db'
-import { loadFinanceData, loadFormOptions } from '@/lib/finance/data'
-import { Money, Alert, SectionHead, CategoryDot, Badge } from '@/components/ui'
+import { loadFinanceData } from '@/lib/finance/data'
+import { Money, Alert, SectionHead, Badge } from '@/components/ui'
 import { Icon } from '@/components/icons'
 import { dateLabel, monthLabel, todayISO } from '@/lib/period'
 import { formatMoney } from '@/lib/money'
 import { ProjectionChart, UpcomingList } from '@/components/finance/projection-chart'
-import { Dialog } from '@/components/dialog'
-import { ExpenseForm } from '@/components/forms/money-forms'
 
 export const metadata: Metadata = { title: 'Inicio' }
 export const dynamic = 'force-dynamic'
 
 export default async function HomePage() {
   const user = await requireUser()
-  const [data, options] = await Promise.all([
-    loadFinanceData(user.id, { months: 6 }),
-    loadFormOptions(user.id),
-  ])
+  const data = await loadFinanceData(user.id, { months: 6 })
   const { overview } = data
   const uyu = overview.summaries.UYU
   const usd = overview.summaries.USD
   const today = todayISO()
-
-  const recent = await prisma.expense.findMany({
-    where: { userId: user.id, status: { not: 'DISCARDED' } },
-    include: { category: true },
-    orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
-    take: 5,
-  })
 
   const hasUsd =
     data.input.accounts.some((account) => account.currency === 'USD') ||
@@ -184,72 +171,6 @@ export default async function HomePage() {
             }
           />
           <UpcomingList items={upcoming} />
-        </section>
-
-        <section className="panel">
-          <SectionHead
-            title="Movimientos recientes"
-            note="Últimos registros confirmados y por revisar"
-            action={
-              <Link href="/movimientos" className="link-button">
-                Ver todos <Icon name="arrow" size={14} />
-              </Link>
-            }
-          />
-          {recent.length === 0 ? (
-            <div className="empty-state">
-              <strong>Todavía no hay movimientos</strong>
-              Registrá tu primer gasto para empezar a ver tus números.
-              <div style={{ marginTop: 14 }}>
-                <Dialog
-                  label="Nuevo movimiento"
-                  icon="plus"
-                  title="Nuevo movimiento"
-                  description="Se guarda como gasto realizado y se descuenta según el medio de pago."
-                >
-                  <ExpenseForm
-                    accounts={options.accounts}
-                    cards={options.cards}
-                    categories={options.categories}
-                    rules={options.rules}
-                    today={today}
-                  />
-                </Dialog>
-              </div>
-            </div>
-          ) : (
-            <div className="transaction-list">
-              {recent.map((expense) => (
-                <Link
-                  key={expense.id}
-                  href={`/movimientos?editar=${expense.id}`}
-                  className="transaction"
-                  style={{ textDecoration: 'none', color: 'inherit' }}
-                >
-                  <CategoryDot icon={expense.category?.icon} color={expense.category?.color} />
-                  <div className="item-main">
-                    <strong>{expense.merchant}</strong>
-                    <small>
-                      {expense.category?.name ?? 'Sin categorizar'} · {dateLabel(expense.date.toISOString().slice(0, 10))}
-                      {expense.source === 'CREDIT_CARD' ? ' · tarjeta' : ''}
-                    </small>
-                  </div>
-                  <div className="item-amount">
-                    <strong>
-                      <Money cents={Math.round(Number(expense.amount) * 100)} currency={expense.currency} />
-                    </strong>
-                    {expense.status === 'NEEDS_REVIEW' ? (
-                      <span className="estimated">Revisar</span>
-                    ) : expense.source === 'CREDIT_CARD' ? (
-                      <span>{expense.installments > 1 ? `${expense.installments} cuotas` : 'Tarjeta'}</span>
-                    ) : (
-                      <span className="paid">Cuenta</span>
-                    )}
-                  </div>
-                </Link>
-              ))}
-            </div>
-          )}
         </section>
 
         <section className={`insight-card ${uyu.savingsCapacityRawCents < 0 ? 'is-negative' : ''}`}>

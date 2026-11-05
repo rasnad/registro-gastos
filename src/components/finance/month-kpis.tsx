@@ -12,6 +12,7 @@ export type MonthBillItem = {
   frequency: string
   chargedToCard: boolean
   estimated: boolean
+  paid: boolean
 }
 
 export type MonthKpi = {
@@ -44,8 +45,6 @@ export function MonthKpis({ months }: { months: MonthKpi[] }) {
               className="kpi kpi-button"
               aria-expanded={isOpen}
               aria-label={`Ver cuentas de ${monthLabel(month.period)}`}
-              onFocus={() => setOpen(month.period)}
-              onBlur={() => setOpen(null)}
               onClick={() => setOpen(isOpen ? null : month.period)}
             >
               <span>{monthLabel(month.period)}</span>
@@ -65,7 +64,13 @@ export function MonthKpis({ months }: { months: MonthKpi[] }) {
               <div className="kpi-popover" role="tooltip">
                 <div className="kpi-popover-head">
                   <strong>{monthLabel(month.period)}</strong>
-                  <span>{month.items.length} cuenta{month.items.length === 1 ? '' : 's'}</span>
+                  <span>
+                    {month.items.filter((item) => !item.paid).length} pendiente
+                    {month.items.filter((item) => !item.paid).length === 1 ? '' : 's'}
+                    {month.items.some((item) => item.paid)
+                      ? ` · ${month.items.filter((item) => item.paid).length} pagada${month.items.filter((item) => item.paid).length === 1 ? '' : 's'}`
+                      : ''}
+                  </span>
                 </div>
                 {month.items.length === 0 ? (
                   <p className="hint" style={{ margin: '6px 0 0' }}>
@@ -76,7 +81,12 @@ export function MonthKpis({ months }: { months: MonthKpi[] }) {
                     {month.items.map((item) => (
                       <li
                         key={`${item.name}-${item.currency}-${item.chargedToCard ? 'card' : 'account'}`}
-                        className={item.frequency === 'MONTHLY' ? '' : 'other'}
+                        className={[
+                          item.frequency === 'MONTHLY' ? '' : 'other',
+                          item.paid ? 'paid' : '',
+                        ]
+                          .filter(Boolean)
+                          .join(' ')}
                       >
                         <span className="kpi-popover-name">
                           {item.name}
@@ -88,9 +98,12 @@ export function MonthKpis({ months }: { months: MonthKpi[] }) {
                     ))}
                   </ul>
                 )}
-                {month.items.some((item) => item.frequency !== 'MONTHLY') ? (
-                  <p className="kpi-popover-legend">Naranja: cuentas que no son mensuales.</p>
-                ) : null}
+                <p className="kpi-popover-legend">
+                  {month.items.some((item) => item.paid) ? 'Verde tachado: ya pagada. ' : ''}
+                  {month.items.some((item) => item.frequency !== 'MONTHLY' && !item.paid)
+                    ? 'Naranja: cuenta que no es mensual.'
+                    : ''}
+                </p>
               </div>
             ) : null}
           </div>

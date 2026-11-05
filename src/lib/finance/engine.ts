@@ -350,7 +350,11 @@ export type BillInMonth = {
   chargePeriod: MonthKey | null
 }
 
-export function billsInMonth(input: EngineInput, period: MonthKey): BillInMonth[] {
+export function billsInMonth(
+  input: EngineInput,
+  period: MonthKey,
+  options: { includePaid?: boolean } = {},
+): BillInMonth[] {
   const result: BillInMonth[] = []
   for (const bill of input.bills) {
     if (!bill.isActive) continue
@@ -358,7 +362,8 @@ export function billsInMonth(input: EngineInput, period: MonthKey): BillInMonth[
     if (!isRecurringInPeriod(bill.startDate, bill.endDate, period, step)) continue
     const occurrence =
       input.billOccurrences.find((o) => o.billId === bill.id && o.period === period) ?? null
-    if (occurrence && occurrence.status === 'PAID') continue
+    const paid = occurrence?.status === 'PAID'
+    if (paid && !options.includePaid) continue
     const dueDate = occurrence?.dueDate ?? dateInMonth(period, bill.dueDay)
     const range = billRangeCents(bill, occurrence)
     const chargedToCard = bill.paymentSource === 'CREDIT_CARD'
@@ -370,7 +375,7 @@ export function billsInMonth(input: EngineInput, period: MonthKey): BillInMonth[
       minCents: range.min,
       maxCents: range.max,
       exact: range.exact,
-      paid: false,
+      paid,
       chargedToCard,
       chargePeriod: chargedToCard ? billChargePeriod(bill, input.cards, dueDate) : null,
     })
