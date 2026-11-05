@@ -11,12 +11,13 @@ import {
   type BillSnapshot,
 } from '@/lib/finance/engine'
 import { addMonthsKey, dateInMonth, isRecurringInPeriod, monthLabel, recurrenceStepMonths, todayISO } from '@/lib/period'
-import { fromCents, type CurrencyCode } from '@/lib/money'
+import { fromCents, sumCents, type CurrencyCode } from '@/lib/money'
 import { Money, Badge, SectionHead, EmptyState } from '@/components/ui'
 import { Icon } from '@/components/icons'
 import { Dialog } from '@/components/dialog'
 import { BillActualForm, BillForm, MiniForm, PayBillForm } from '@/components/forms/other-forms'
 import { deleteBill, unpayBillOccurrence } from '@/app/actions/bills'
+import { MonthKpis, type MonthKpi } from '@/components/finance/month-kpis'
 
 export const metadata: Metadata = { title: 'Cuentas fijas' }
 export const dynamic = 'force-dynamic'
@@ -41,17 +42,45 @@ export default async function CuentasPage() {
   const current = data.overview.currentMonth
   const upcomingMonths = [current, addMonthsKey(current, 1), addMonthsKey(current, 2)]
 
-  const monthlyTotals: Record<string, Record<CurrencyCode, number>> = {}
-  for (const month of upcomingMonths) {
-    monthlyTotals[month] = { UYU: 0, USD: 0 }
-    for (const item of billsInMonth(data.input, month)) {
-      if (item.chargedToCard) {
-        if (item.chargePeriod === month) monthlyTotals[month][item.bill.currency] += item.expectedCents
-      } else {
-        monthlyTotals[month][item.bill.currency] += item.expectedCents
-      }
+  const monthSummaries: MonthKpi[] = upcomingMonths.map((month) => {
+    const bankBills = billsInMonth(data.input, month).filter((item) => !item.chargedToCard)
+    const cardBills = (['UYU', 'USD'] as CurrencyCode[]).flatMap((cur) =>
+      cardChargedBillsForPeriod(data.input, cur, month),
+    )
+    const items = [
+      ...bankBills.map((item) => ({
+        name: item.bill.name,
+        amountCents: item.expectedCents,
+        currency: item.bill.currency as CurrencyCode,
+        frequency: item.bill.frequency,
+        chargedToCard: false,
+        estimated: !item.exact,
+      })),
+      ...cardBills.map((item) => ({
+        name: item.bill.name,
+        amountCents: item.expectedCents,
+        currency: item.bill.currency as CurrencyCode,
+        frequency: item.bill.frequency,
+        chargedToCard: true,
+        estimated: !item.exact,
+      })),
+    ].sort((first, second) => {
+      const firstMonthly = first.frequency === 'MONTHLY' ? 1 : 0
+      const secondMonthly = second.frequency === 'MONTHLY' ? 1 : 0
+      if (firstMonthly !== secondMonthly) return firstMonthly - secondMonthly
+      return first.name.localeCompare(second.name)
+    })
+
+    return {
+      period: month,
+      totals: {
+        UYU: sumCents(items.filter((item) => item.currency === 'UYU').map((item) => item.amountCents)),
+        USD: sumCents(items.filter((item) => item.currency === 'USD').map((item) => item.amountCents)),
+      },
+      items,
+      note: month === current ? 'Incluye lo pendiente de este mes' : undefined,
     }
-  }
+  })
 
   if (billRows.length === 0) {
     return (
@@ -85,23 +114,7 @@ export default async function CuentasPage() {
         </Dialog>
       </div>
 
-      <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
-        {upcomingMonths.map((month) => (
-          <div className="kpi" key={month}>
-            <span>{monthLabel(month)}</span>
-            <strong>
-              <Money cents={monthlyTotals[month].UYU} currency="UYU" />
-            </strong>
-            {monthlyTotals[month].USD > 0 ? (
-              <small>
-                + <Money cents={monthlyTotals[month].USD} currency="USD" />
-              </small>
-            ) : (
-              <small>{month === current ? 'Incluye lo pendiente de este mes' : 'Proyección de cuentas'}</small>
-            )}
-          </div>
-        ))}
-      </div>
+      <MonthKpis months={monthSummaries} />
 
       <section className="panel">
         <SectionHead title="Tus cuentas" note="Estado del mes en curso" />

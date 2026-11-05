@@ -83,16 +83,16 @@ export default async function TarjetasPage() {
           ) {
             return true
           }
-          return cur === card.currency
+          return cur === 'UYU'
         })
 
         return (
           <div className="stack" key={card.id}>
             <div className="cards-layout">
-              <div className={`credit-card ${card.currency === 'UYU' ? 'uyu' : ''}`}>
+              <div className="credit-card uyu">
                 <div className="card-top">
                   <span>{card.name}</span>
-                  <span>{currencies.length > 1 ? 'UYU / USD' : card.currency}</span>
+                  <span>UYU / USD</span>
                 </div>
                 <div className="card-chip" />
                 <div className="card-number">•••• &nbsp; •••• &nbsp; •••• &nbsp; {card.last4 ?? '····'}</div>
@@ -119,7 +119,7 @@ export default async function TarjetasPage() {
                       categories={options.categories}
                       rules={options.rules}
                       today={today}
-                      defaults={{ source: 'CREDIT_CARD', creditCardId: card.id, currency: card.currency }}
+                      defaults={{ source: 'CREDIT_CARD', creditCardId: card.id, currency: 'UYU' }}
                     />
                   </Dialog>
                   <Dialog
@@ -133,7 +133,6 @@ export default async function TarjetasPage() {
                         id: card.id,
                         name: card.name,
                         last4: card.last4,
-                        currency: card.currency,
                         closingDay: card.closingDay,
                         dueDay: card.dueDay,
                         notes: card.notes,

@@ -45,7 +45,6 @@ export type AccountSnapshot = {
 export type CardSnapshot = {
   id: string
   name: string
-  currency: CurrencyCode
   closingDay: number
   dueDay: number
   isActive: boolean

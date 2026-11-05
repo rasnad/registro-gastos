@@ -8,7 +8,7 @@ import { CURRENCIES, type CurrencyCode } from '@/lib/money'
 import type { ActionState } from '@/lib/action-state'
 
 export type AccountOption = { id: string; name: string; currency: CurrencyCode; kind: string; isDefault: boolean }
-export type CardOption = { id: string; name: string; currency: CurrencyCode; closingDay: number; dueDay: number }
+export type CardOption = { id: string; name: string; closingDay: number; dueDay: number }
 export type CategoryOption = { id: string; name: string; isActive: boolean }
 export type MerchantRule = { pattern: string; categoryId: string }
 
@@ -243,7 +243,7 @@ export function ExpenseForm({
                 </option>
                 {cardsForCurrency.map((card) => (
                   <option key={card.id} value={card.id}>
-                    {card.name} · {card.currency}
+                    {card.name}
                   </option>
                 ))}
               </select>

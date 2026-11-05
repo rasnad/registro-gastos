@@ -295,7 +295,7 @@ export default async function AjustesPage({ searchParams }: { searchParams: Para
                       {card.name} {!card.isActive ? <Badge tone="neutral">Inactiva</Badge> : null}
                     </strong>
                     <small>
-                      {card.currency} · cierre día {card.closingDay} · vence día {card.dueDay}
+                      Pesos y dólares · cierre día {card.closingDay} · vence día {card.dueDay}
                       {card.last4 ? ` · •••• ${card.last4}` : ''}
                     </small>
                   </div>
@@ -306,7 +306,6 @@ export default async function AjustesPage({ searchParams }: { searchParams: Para
                           id: card.id,
                           name: card.name,
                           last4: card.last4,
-                          currency: card.currency,
                           closingDay: card.closingDay,
                           dueDay: card.dueDay,
                           notes: card.notes,

@@ -94,7 +94,6 @@ export async function loadFinanceData(
   const cards: CardSnapshot[] = cardRows.map((card) => ({
     id: card.id,
     name: card.name,
-    currency: card.currency,
     closingDay: card.closingDay,
     dueDay: card.dueDay,
     isActive: card.isActive,
@@ -287,7 +286,7 @@ export async function loadComparableExpenses(userId: string): Promise<Comparable
 export type FormOptions = {
   today: string
   accounts: Array<{ id: string; name: string; currency: 'UYU' | 'USD'; kind: string; isDefault: boolean }>
-  cards: Array<{ id: string; name: string; currency: 'UYU' | 'USD'; closingDay: number; dueDay: number }>
+  cards: Array<{ id: string; name: string; closingDay: number; dueDay: number }>
   categories: Array<{ id: string; name: string; isActive: boolean }>
   rules: Array<{ pattern: string; categoryId: string }>
 }
@@ -312,7 +311,6 @@ export async function loadFormOptions(userId: string): Promise<FormOptions> {
     cards: cards.map((card) => ({
       id: card.id,
       name: card.name,
-      currency: card.currency,
       closingDay: card.closingDay,
       dueDay: card.dueDay,
     })),

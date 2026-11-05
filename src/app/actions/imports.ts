@@ -125,7 +125,7 @@ export async function parseStatementPreview(formData: FormData): Promise<Stateme
     const layout = parseStatementLayout(pages, {
       today,
       statementPeriod: explicitPeriod,
-      defaultCurrency: card.currency,
+      defaultCurrency: 'UYU',
     })
 
     meta = {
@@ -161,7 +161,7 @@ export async function parseStatementPreview(formData: FormData): Promise<Stateme
 
     const parsed = parseStatementText(text, {
       today,
-      currency: card.currency,
+      currency: 'UYU',
       card: { closingDay: card.closingDay, dueDay: card.dueDay },
     })
 
@@ -184,7 +184,7 @@ export async function parseStatementPreview(formData: FormData): Promise<Stateme
       date: row.date,
       merchant: row.merchant,
       amountCents: row.amountCents,
-      currency: row.currency ?? card.currency,
+      currency: row.currency ?? 'UYU',
       installmentNumber: row.installmentNumber,
       installments: row.installments,
       period,
@@ -373,7 +373,7 @@ export async function confirmStatementImport(_prev: ActionState, formData: FormD
         payload.totalUsd && parseAmountInput(payload.totalUsd) !== null
           ? fromCents(parseAmountInput(payload.totalUsd)!)
           : null,
-      currency: card.currency,
+      currency: 'UYU',
       fileName: payload.fileName?.slice(0, 120) ?? null,
       fileHash: payload.fileHash?.slice(0, 64) ?? null,
       rowsParsed: rows.length,

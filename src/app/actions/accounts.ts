@@ -227,13 +227,11 @@ export async function resetOpeningBalance(_prev: ActionState, formData: FormData
 export async function createCreditCard(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const user = await requireUser()
   const name = str(formData, 'name')
-  const cur = currency(formData, 'currency')
   const closingDay = int(formData, 'closingDay', 0)
   const dueDay = int(formData, 'dueDay', 0)
   const last4 = optStr(formData, 'last4')
 
   if (!name) return { error: 'Ponele un nombre a la tarjeta.' }
-  if (!cur) return { error: 'Elegí la moneda.' }
   if (closingDay < 1 || closingDay > 31) return { error: 'La fecha de cierre debe estar entre 1 y 31.' }
   if (dueDay < 1 || dueDay > 31) return { error: 'La fecha de vencimiento debe estar entre 1 y 31.' }
   if (last4 && !/^\d{4}$/.test(last4)) return { error: 'Los últimos 4 dígitos deben ser numéricos.' }
@@ -242,7 +240,6 @@ export async function createCreditCard(_prev: ActionState, formData: FormData): 
     data: {
       userId: user.id,
       name,
-      currency: cur,
       closingDay,
       dueDay,
       last4,

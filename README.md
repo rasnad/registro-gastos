@@ -205,7 +205,9 @@ Tablas principales: `User`, `Account`, `Income`, `BalanceAdjustment`, `Expense`,
 6. **Ahorro** ⇒ los aportes con cuenta descuentan el disponible; el ahorro programado se resta del
    margen proyectado. La asignación a objetivos es **por prioridad**, sin prometer dos veces el mismo
    dinero.
-7. **Pago de resumen USD desde una cuenta en pesos** ⇒ se usa la **cotización configurada** (Ajustes →
+7. **Tarjeta sin moneda** ⇒ una tarjeta acepta consumos en pesos y en dólares (no tiene moneda propia).
+   El pago se registra por la moneda de la obligación y se debita en pesos a la cotización configurada
+   (Ajustes →
    Preferencias, por defecto $U 41,00). El pago guarda el importe de la obligación (USD) y el importe
    debitado de la cuenta (UYU), así el saldo bancario baja en pesos y las cuotas USD quedan saldadas.
    La cotización **no** consolida ni convierte los reportes: cada moneda sigue mostrándose por separado.
@@ -364,8 +366,10 @@ contraseña larga + cookie httpOnly; la app está pensada para uso personal.
 - **Categorías por reglas, no por IA.** `suggestCategoryName` mapea comercios frecuentes; si no hay
   coincidencia queda "Sin categorizar". La interfaz está preparada para reemplazarlo por un LLM más
   adelante (una sola función pura).
-- **Tarjeta multi-moneda.** El resumen de Itaú trae pesos y dólares en el mismo documento; por eso el
-  pago del resumen es único por (tarjeta, período, moneda).
+- **Tarjeta sin moneda fija.** El resumen de Itaú trae pesos y dólares en el mismo documento; la
+  tarjeta no guarda una moneda y el pago del resumen es único por (tarjeta, período, moneda).
+- **Próximos meses en Cuentas.** Al pasar el mouse (o enfocar) los tres totales muestran el detalle de
+  las cuentas de ese mes; las que no son mensuales se resaltan en naranja suave.
 - **Cotización para pagar, no para reportar.** La cotización (default 41,00) sólo define cuántos pesos
   salen de la cuenta al pagar un resumen en dólares. Si cambia, cambiá el valor y los próximos pagos
   usan el nuevo; los pagos ya registrados conservan la cotización con la que se hicieron.

@@ -21,7 +21,7 @@ export default async function ImportarPage({ searchParams }: { searchParams: Par
     prisma.creditCard.findMany({
       where: { userId: user.id, isActive: true },
       orderBy: { createdAt: 'asc' },
-      select: { id: true, name: true, currency: true, closingDay: true, dueDay: true },
+      select: { id: true, name: true, closingDay: true, dueDay: true },
     }),
     prisma.category.findMany({
       where: { userId: user.id, isActive: true },

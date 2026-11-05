@@ -78,7 +78,6 @@ async function parseBill(formData: FormData, userId: string): Promise<{ data?: P
       ? await prisma.creditCard.findFirst({ where: { id: creditCardId, userId } })
       : null
     if (!card) return { error: 'Elegí la tarjeta con la que se paga.' }
-    if (card.currency !== cur) return { error: `La tarjeta es en ${card.currency}.` }
   } else if (paymentSource === 'ACCOUNT') {
     accountId = optStr(formData, 'accountId')
     const account = accountId ? await prisma.account.findFirst({ where: { id: accountId, userId } }) : null

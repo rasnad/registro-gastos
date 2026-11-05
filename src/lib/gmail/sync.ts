@@ -204,8 +204,10 @@ export async function syncGmailForUser(userId: string): Promise<SyncResult> {
           let creditCardId: string | null = null
           if (parsed.kind === 'CREDIT') {
             const card = parsed.cardLast4
-              ? cards.find((item) => item.last4 === parsed.cardLast4 && item.currency === parsed.currency)
-              : cards.find((item) => item.currency === parsed.currency)
+              ? cards.find((item) => item.last4 === parsed.cardLast4)
+              : cards.length === 1
+                ? cards[0]
+                : undefined
             if (!card) {
               await prisma.processedGmailMessage.create({
                 data: {

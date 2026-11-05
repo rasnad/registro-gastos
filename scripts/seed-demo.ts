@@ -118,7 +118,6 @@ async function main() {
       userId: user.id,
       name: 'Itaú Visa',
       last4: '1842',
-      currency: 'UYU',
       closingDay: 18,
       dueDay: 24,
     },

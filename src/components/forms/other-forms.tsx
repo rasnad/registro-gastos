@@ -57,7 +57,6 @@ export function CardForm({
     id: string
     name: string
     last4: string | null
-    currency: CurrencyCode
     closingDay: number
     dueDay: number
     notes: string | null
@@ -71,23 +70,13 @@ export function CardForm({
         <span>Nombre o referencia</span>
         <input className="input" name="name" required defaultValue={defaults?.name} placeholder="Ej. Itaú Visa" />
       </label>
-      <div className="field-grid">
-        <label className="field">
-          <span>Últimos 4 dígitos (opcional)</span>
-          <input className="input" name="last4" maxLength={4} defaultValue={defaults?.last4 ?? ''} placeholder="1842" />
-        </label>
-        <label className="field">
-          <span>Moneda</span>
-          {defaults ? (
-            <input className="input" value={defaults.currency} disabled />
-          ) : (
-            <select className="select" name="currency" defaultValue="UYU">
-              <option value="UYU">Pesos (UYU)</option>
-              <option value="USD">Dólares (USD)</option>
-            </select>
-          )}
-        </label>
-      </div>
+      <label className="field">
+        <span>Últimos 4 dígitos (opcional)</span>
+        <input className="input" name="last4" maxLength={4} defaultValue={defaults?.last4 ?? ''} placeholder="1842" />
+        <span className="hint">
+          La tarjeta puede tener consumos en pesos y en dólares; no se elige una moneda por tarjeta.
+        </span>
+      </label>
       <div className="field-grid">
         <label className="field">
           <span>Día de cierre</span>
@@ -135,14 +124,14 @@ export function CardPaymentForm({
 }) {
   const [cardId, setCardId] = useState(defaultCardId ?? cards[0]?.id ?? '')
   const card = cards.find((item) => item.id === cardId)
-  const [payCurrency, setPayCurrency] = useState<CurrencyCode>(defaultCurrency ?? card?.currency ?? 'UYU')
+  const [payCurrency, setPayCurrency] = useState<CurrencyCode>(defaultCurrency ?? 'UYU')
   const [amountText, setAmountText] = useState(defaultAmount ?? '')
   const defaultPayableAccount = (cur: CurrencyCode) =>
     accounts.find(
       (account) => account.isDefault && (account.currency === cur || (cur === 'USD' && account.currency === 'UYU')),
     )?.id ?? ''
   const [accountId, setAccountId] = useState(
-    defaultPayableAccount(defaultCurrency ?? cards.find((item) => item.id === defaultCardId)?.currency ?? 'UYU'),
+    defaultPayableAccount(defaultCurrency ?? 'UYU'),
   )
   function changePayCurrency(next: CurrencyCode) {
     setPayCurrency(next)
@@ -440,7 +429,7 @@ export function BillForm({
             <span>Tarjeta</span>
             <select className="select" name="creditCardId" defaultValue={defaults?.creditCardId ?? ''} required>
               <option value="" disabled>Elegí una tarjeta</option>
-              {cards.filter((card) => card.currency === currency).map((card) => (
+              {cards.map((card) => (
                 <option key={card.id} value={card.id}>{card.name}</option>
               ))}
             </select>

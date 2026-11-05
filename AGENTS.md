@@ -21,6 +21,7 @@ npm run db:deploy  # prisma migrate deploy (requiere TCP 5432)
 2. **Nunca convertir ni sumar monedas en los reportes.** Cada cálculo se hace por `currency` (UYU/USD).
    La única conversión permitida es al **pagar** una obligación USD desde una cuenta UYU: se usa
    `User.usdRateCents` y se guarda `CardPayment.accountAmount` (lo debitado) aparte del importe.
+   Las tarjetas **no** tienen moneda: aceptan consumos en UYU y USD.
 3. **Compra con tarjeta ≠ débito bancario.** Genera `CardInstallment`. Sólo `CardPayment` descuenta la
    cuenta y salda el período. Ver `src/lib/finance/engine.ts`.
 4. **Cuotas por período** (`YYYY-MM` del vencimiento del resumen), calculadas con

@@ -18,7 +18,7 @@ export async function registerCardPayment(_prev: ActionState, formData: FormData
   const amountCents = cents(formData, 'amount')
   const paidAt = isoDate(formData, 'paidAt')
   const accountId = optStr(formData, 'accountId')
-  const payCurrency = currency(formData, 'currency') ?? card.currency
+  const payCurrency = currency(formData, 'currency') ?? 'UYU'
 
   if (!period) return { error: 'Indicá el resumen que estás pagando (AAAA-MM).' }
   if (amountCents === null || amountCents <= 0) return { error: 'El importe del pago no es válido.' }
@@ -135,21 +135,6 @@ export async function movePurchasePeriod(_prev: ActionState, formData: FormData)
     }),
   )
 
-  revalidateFinance()
-  return { ok: true }
-}
-
-export async function updateCardCurrency(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const user = await requireUser()
-  const id = str(formData, 'id')
-  const cur = currency(formData, 'currency')
-  if (!cur) return { error: 'Moneda inválida.' }
-  const card = await prisma.creditCard.findFirst({ where: { id, userId: user.id } })
-  if (!card) return { error: 'La tarjeta no existe.' }
-  if (card.currency === cur) return { ok: true }
-  const used = await prisma.expense.count({ where: { creditCardId: card.id, userId: user.id } })
-  if (used > 0) return { error: 'No se puede cambiar la moneda de una tarjeta con movimientos.' }
-  await prisma.creditCard.update({ where: { id: card.id }, data: { currency: cur } })
   revalidateFinance()
   return { ok: true }
 }

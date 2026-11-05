@@ -162,7 +162,6 @@ model CreditCard {
   userId     String
   name       String
   last4      String?
-  currency   Currency
   closingDay Int
   dueDay     Int
   isActive   Boolean  @default(true)

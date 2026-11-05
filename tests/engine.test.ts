@@ -28,7 +28,7 @@ function baseInput(): EngineInput {
       },
     ],
     cards: [
-      { id: 'card-1', name: 'Itaú Visa', currency: 'UYU', closingDay: CARD_CLOSING, dueDay: CARD_DUE, isActive: true },
+      { id: 'card-1', name: 'Itaú Visa', closingDay: CARD_CLOSING, dueDay: CARD_DUE, isActive: true },
     ],
     incomes: [
       {

@@ -13,7 +13,7 @@ import { Icon } from '@/components/icons'
 import { Badge, Money } from '@/components/ui'
 import { suggestCategoryName } from '@/lib/categories-rules'
 
-type CardOption = { id: string; name: string; currency: string; closingDay: number; dueDay: number }
+type CardOption = { id: string; name: string; closingDay: number; dueDay: number }
 type CategoryOption = { id: string; name: string }
 
 export function StatementWizard({
@@ -108,7 +108,7 @@ export function StatementWizard({
       date: today,
       merchant: '',
       amountCents: null,
-      currency: (card?.currency as 'UYU' | 'USD') ?? 'UYU',
+      currency: 'UYU',
       installmentNumber: null,
       installments: null,
       period: null,
@@ -221,7 +221,7 @@ export function StatementWizard({
               <select className="select" value={cardId} onChange={(event) => setCardId(event.target.value)}>
                 {cards.map((item) => (
                   <option key={item.id} value={item.id}>
-                    {item.name} · {item.currency}
+                    {item.name}
                   </option>
                 ))}
               </select>

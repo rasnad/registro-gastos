@@ -34,7 +34,6 @@ export default async function HomePage() {
 
   const hasUsd =
     data.input.accounts.some((account) => account.currency === 'USD') ||
-    data.input.cards.some((card) => card.currency === 'USD') ||
     usd.availableCents !== 0 ||
     usd.cardFutureCents > 0 ||
     usd.committedCents > 0
