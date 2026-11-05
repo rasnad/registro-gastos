@@ -334,6 +334,12 @@ En Vercel:
    npm run db:apply
    ```
    (o `npx prisma migrate deploy` desde una red con 5432 habilitado).
+
+   **Orden importante:** si la migración es **aditiva** (agrega columnas/tablas), se puede aplicar
+   antes del deploy. Si **elimina o renombra** columnas, aplicarla **después** de que el deploy nuevo
+   esté en producción: mientras corre el build, la versión anterior sigue consultando la columna y
+   devuelve 500 (`P2022 column does not exist`). Para cambios destructivos conviene además un paso
+   intermedio (columna nueva + backfill, deploy, y recién después borrar la vieja).
 7. Crear los usuarios con `npm run user:create` (ver §1) y entrar por `/login`.
 
 Notas:

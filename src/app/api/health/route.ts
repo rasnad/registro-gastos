@@ -54,6 +54,8 @@ export async function GET() {
       env,
       runtime: process.env.VERCEL_ENV ?? process.env.NODE_ENV,
       region: process.env.VERCEL_REGION ?? null,
+      commit: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? null,
+      branch: process.env.VERCEL_GIT_COMMIT_REF ?? null,
       ...(detail ? { detail } : {}),
     },
     { status: ok ? 200 : 503 },
