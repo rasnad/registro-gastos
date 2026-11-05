@@ -95,7 +95,7 @@ export default async function HomePage() {
             <div className="balance-value">
               <Money cents={uyu.afterCommitmentsCents} currency="UYU" />
               <small>
-                de {formatMoney(uyu.availableCents, 'UYU')} en cuentas
+                saldo en cuentas: <Money cents={uyu.availableCents} currency="UYU" />
               </small>
             </div>
             <small>
@@ -109,11 +109,19 @@ export default async function HomePage() {
           <div className="balance-stats">
             <div>
               <span className="stat-dot coral" />
-              <p>Gastado este mes</p>
+              <p>Gastado</p>
               <strong>
                 <Money cents={uyu.spentThisMonthCents} currency="UYU" />
               </strong>
               <small>débito, efectivo y transferencias</small>
+            </div>
+            <div>
+              <span className="stat-dot mint" />
+              <p>Cuentas pagadas</p>
+              <strong>
+                <Money cents={uyu.billsPaidThisMonthCents} currency="UYU" />
+              </strong>
+              <small>ya salieron de la cuenta</small>
             </div>
             <div>
               <span className="stat-dot purple" />
@@ -121,7 +129,7 @@ export default async function HomePage() {
               <strong>
                 <Money cents={uyu.committedCents} currency="UYU" />
               </strong>
-              <small>tarjeta del mes + cuentas pendientes</small>
+              <small>cuentas pendientes + tarjeta</small>
             </div>
           </div>
 

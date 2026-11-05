@@ -447,6 +447,8 @@ export type CurrencySummary = {
   afterCommitmentsCents: number
   incomeThisMonthCents: number
   spentThisMonthCents: number
+  /** Cuentas ya pagadas este mes desde la cuenta (no tarjeta). */
+  billsPaidThisMonthCents: number
   plannedSavingsCents: number
   /** Margen del mes antes de ahorro programado (ingresos − gastos y compromisos). */
   operatingMarginCents: number
@@ -499,6 +501,19 @@ export function computeCurrencySummary(
   )
   const spentThisMonthCents = sumCents(accountExpensesThisMonth.map((e) => e.amountCents))
 
+  const billsPaidThisMonth = input.billOccurrences.filter((occurrence) => {
+    if (occurrence.status !== 'PAID' || occurrence.period !== current) return false
+    const bill = input.bills.find((item) => item.id === occurrence.billId)
+    if (!bill || bill.currency !== currency) return false
+    return bill.paymentSource === 'ACCOUNT'
+  })
+  const billsPaidThisMonthCents = sumCents(
+    billsPaidThisMonth.map((occurrence) => {
+      const bill = input.bills.find((item) => item.id === occurrence.billId)
+      return bill ? billExpectedCents(bill, occurrence) : 0
+    }),
+  )
+
   const plannedSavingsCents = sumCents(
     input.goals
       .filter((g) => g.isActive && g.currency === currency)
@@ -528,6 +543,9 @@ export function computeCurrencySummary(
   if (overdue.length > 0) {
     missing.push('Hay cuotas de resúmenes anteriores sin pagar: el saldo disponible puede estar sobreestimado.')
   }
+  if (input.accounts.length > 0 && input.accounts.every((account) => account.openingCents === 0) && availableCents < 0) {
+    missing.push('No cargaste el saldo inicial de las cuentas: por eso el disponible se ve negativo.')
+  }
 
   return {
     currency,
@@ -549,6 +567,7 @@ export function computeCurrencySummary(
     afterCommitmentsCents,
     incomeThisMonthCents,
     spentThisMonthCents,
+    billsPaidThisMonthCents,
     plannedSavingsCents,
     operatingMarginCents,
     savingsCapacityCents: clampZero(savingsCapacityRawCents),
