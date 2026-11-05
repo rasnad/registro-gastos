@@ -18,7 +18,9 @@ npm run db:deploy  # prisma migrate deploy (requiere TCP 5432)
 
 1. **Dinero en centavos enteros** dentro de la lógica (`src/lib/money.ts`). En Prisma es
    `Decimal(14,2)`; convertir sólo en el borde con `toCents`/`fromCents`.
-2. **Nunca convertir ni sumar monedas.** Cada cálculo se hace por `currency` (UYU/USD).
+2. **Nunca convertir ni sumar monedas en los reportes.** Cada cálculo se hace por `currency` (UYU/USD).
+   La única conversión permitida es al **pagar** una obligación USD desde una cuenta UYU: se usa
+   `User.usdRateCents` y se guarda `CardPayment.accountAmount` (lo debitado) aparte del importe.
 3. **Compra con tarjeta ≠ débito bancario.** Genera `CardInstallment`. Sólo `CardPayment` descuenta la
    cuenta y salda el período. Ver `src/lib/finance/engine.ts`.
 4. **Cuotas por período** (`YYYY-MM` del vencimiento del resumen), calculadas con

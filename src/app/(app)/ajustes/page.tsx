@@ -3,7 +3,7 @@ import type { Metadata } from 'next'
 import { requireUser } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { loadFinanceData, loadFormOptions } from '@/lib/finance/data'
-import { fromCents, formatMoney, type CurrencyCode } from '@/lib/money'
+import { convertUsdToUyu, fromCents, formatMoney, formatRate, type CurrencyCode } from '@/lib/money'
 import { dateLabel, monthLabel, toISODate, todayISO } from '@/lib/period'
 import { Money, Alert, Badge, SectionHead, EmptyState } from '@/components/ui'
 import { Icon, type IconName } from '@/components/icons'
@@ -11,6 +11,7 @@ import { Dialog } from '@/components/dialog'
 import { AccountForm, AdjustmentForm, ExpenseForm, IncomeEditForm, IncomeForm } from '@/components/forms/money-forms'
 import { CardForm, CategoryForm, MiniForm } from '@/components/forms/other-forms'
 import { GmailSyncButton } from '@/components/gmail-sync'
+import { updateUsdRate } from '@/app/actions/settings'
 import { ActionForm } from '@/components/action-form'
 import { deleteAdjustment, deleteIncome, toggleIncome } from '@/app/actions/accounts'
 import { deactivateCategory, deleteMerchantRule, restoreCategory } from '@/app/actions/categories'
@@ -90,6 +91,7 @@ export default async function AjustesPage({ searchParams }: { searchParams: Para
         <a href="#ingresos">Ingresos</a>
         <a href="#tarjetas">Tarjetas</a>
         <a href="#categorias">Categorías</a>
+        <a href="#preferencias">Preferencias</a>
         <a href="#importaciones">Resúmenes importados</a>
         <a href="#gmail">Conexión con Gmail</a>
         <a href="#privacidad">Privacidad</a>
@@ -400,6 +402,39 @@ export default async function AjustesPage({ searchParams }: { searchParams: Para
               </div>
             </div>
           ) : null}
+        </section>
+
+        <section className="panel settings-section" id="preferencias">
+          <SectionHead
+            title="Cotización del dólar"
+            note="Se usa para pagar resúmenes en dólares desde una cuenta en pesos"
+          />
+          <div className="form-section">
+            <ActionForm action={updateUsdRate} submitLabel="Guardar cotización" compact>
+              <div className="field-grid">
+                <label className="field">
+                  <span>Pesos por 1 dólar</span>
+                  <input
+                    className="input"
+                    name="rate"
+                    inputMode="decimal"
+                    required
+                    defaultValue={formatRate(user.usdRateCents)}
+                    placeholder="41,00"
+                  />
+                  <span className="hint">
+                    Ej. 41 o 41,35. No convierte tus saldos: sólo define cuántos pesos salen de la cuenta
+                    cuando pagás un resumen en dólares.
+                  </span>
+                </label>
+                <label className="field">
+                  <span>Equivalente de ejemplo</span>
+                  <input className="input" value={`US$ 100 = ${formatMoney(convertUsdToUyu(10_000, user.usdRateCents), 'UYU')}`} disabled />
+                  <span className="hint">Se recalcula al guardar y se muestra en el formulario de pago.</span>
+                </label>
+              </div>
+            </ActionForm>
+          </div>
         </section>
 
         <section className="panel settings-section" id="importaciones">

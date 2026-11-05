@@ -205,7 +205,11 @@ Tablas principales: `User`, `Account`, `Income`, `BalanceAdjustment`, `Expense`,
 6. **Ahorro** ⇒ los aportes con cuenta descuentan el disponible; el ahorro programado se resta del
    margen proyectado. La asignación a objetivos es **por prioridad**, sin prometer dos veces el mismo
    dinero.
-7. **Conciliación** ⇒ clave estable por operación (medio de pago + fecha + importe + comercio
+7. **Pago de resumen USD desde una cuenta en pesos** ⇒ se usa la **cotización configurada** (Ajustes →
+   Preferencias, por defecto $U 41,00). El pago guarda el importe de la obligación (USD) y el importe
+   debitado de la cuenta (UYU), así el saldo bancario baja en pesos y las cuotas USD quedan saldadas.
+   La cotización **no** consolida ni convierte los reportes: cada moneda sigue mostrándose por separado.
+8. **Conciliación** ⇒ clave estable por operación (medio de pago + fecha + importe + comercio
    normalizado + cuotas). Gmail y resumen no crean un gasto si ya existe una coincidencia
    `exact`/`likely`; las coincidencias dudosas se muestran para que decidas.
 
@@ -293,9 +297,10 @@ Cobertura de los puntos críticos:
 | Saldos | Compra con tarjeta no toca el banco, pago de resumen descuenta una sola vez, cuentas con tarjeta no se duplican, monedas separadas. |
 | Proyección | Mes en curso usa saldo real y no re-resta lo ya gastado; rangos variables; datos faltantes explícitos. |
 | Objetivos | Asignación conjunta por prioridad, sin asignar el mismo margen dos veces. |
+| Pago USD desde cuenta UYU | Convierte con la cotización configurada, debita pesos y salda la cuota en dólares. |
 | Parsers | Extracción de avisos de consumo y de resúmenes, columnas pesos/dólares, cuotas N/M, líneas omitidas, datos faltantes e instrucciones sospechosas ignoradas. |
 
-Resultado: **58/58 tests OK** y **build de producción OK**. El smoke test E2E (login → alta de gasto →
+Resultado: **62/62 tests OK** y **build de producción OK**. El smoke test E2E (login → alta de gasto →
 verificación de saldo → borrado → importación manual → estado "por revisar") pasó sin errores de
 consola.
 
@@ -356,6 +361,11 @@ contraseña larga + cookie httpOnly; la app está pensada para uso personal.
   adelante (una sola función pura).
 - **Tarjeta multi-moneda.** El resumen de Itaú trae pesos y dólares en el mismo documento; por eso el
   pago del resumen es único por (tarjeta, período, moneda).
+- **Cotización para pagar, no para reportar.** La cotización (default 41,00) sólo define cuántos pesos
+  salen de la cuenta al pagar un resumen en dólares. Si cambia, cambiá el valor y los próximos pagos
+  usan el nuevo; los pagos ya registrados conservan la cotización con la que se hicieron.
+- **Saldos históricos:** el pago guarda `accountAmount` (lo debitado) además del importe de la
+  obligación; el saldo se calcula con lo debitado.
 
 - **Sin conversión de moneda.** Para evitar cifras incorrectas, cada moneda se muestra y proyecta por
   separado. Un tipo de cambio explícito queda como mejora futura.

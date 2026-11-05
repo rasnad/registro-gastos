@@ -110,6 +110,9 @@ model User {
   email        String   @unique
   name         String
   passwordHash String
+  // Cotización configurada: pesos uruguayos (en centavos) por 1 dólar.
+  // 4100 = $U 41,00. Se usa para pagar obligaciones USD desde una cuenta UYU.
+  usdRateCents Int      @default(4100)
   createdAt    DateTime @default(now())
 
   accounts         Account[]
@@ -266,6 +269,11 @@ model CardPayment {
   period     String
   amount     Decimal  @db.Decimal(14, 2)
   currency   Currency
+  // Importe que realmente sale de la cuenta, en la moneda de esa cuenta.
+  // Si se paga un resumen USD desde una cuenta UYU, acá queda el equivalente.
+  accountAmount Decimal? @db.Decimal(14, 2)
+  // Cotización usada (centavos de UYU por USD); null si no hubo conversión.
+  exchangeRate Int?
   paidAt     DateTime @db.Date
   accountId  String?
   note       String?

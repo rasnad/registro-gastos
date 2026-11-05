@@ -3,7 +3,7 @@
 import 'server-only'
 import { prisma } from '@/lib/db'
 import { requireUser } from '@/lib/auth'
-import { fromCents } from '@/lib/money'
+import { convertUsdToUyu, fromCents } from '@/lib/money'
 import { revalidateFinance } from '@/lib/revalidate'
 import { cents, currency, dateValue, isoDate, monthKey, optStr, str } from '@/lib/validation'
 import type { ActionState } from '@/lib/action-state'
@@ -24,11 +24,29 @@ export async function registerCardPayment(_prev: ActionState, formData: FormData
   if (amountCents === null || amountCents <= 0) return { error: 'El importe del pago no es válido.' }
   if (!paidAt) return { error: 'La fecha de pago no es válida.' }
 
+  let accountAmountCents: number | null = null
+  let exchangeRate: number | null = null
+
   if (accountId) {
     const account = await prisma.account.findFirst({ where: { id: accountId, userId: user.id } })
     if (!account) return { error: 'La cuenta no existe.' }
-    if (account.currency !== payCurrency) {
-      return { error: `La cuenta es en ${account.currency} y el pago en ${payCurrency}.` }
+
+    if (account.currency === payCurrency) {
+      accountAmountCents = amountCents
+    } else if (account.currency === 'UYU' && payCurrency === 'USD') {
+      // Los consumos en dólares se pagan desde la cuenta en pesos a la
+      // cotización configurada (por defecto 41,00).
+      const rate = await prisma.user.findUnique({
+        where: { id: user.id },
+        select: { usdRateCents: true },
+      })
+      const rateCents = rate?.usdRateCents ?? 4100
+      accountAmountCents = convertUsdToUyu(amountCents, rateCents)
+      exchangeRate = rateCents
+    } else {
+      return {
+        error: `No se puede pagar ${payCurrency} desde una cuenta en ${account.currency}.`,
+      }
     }
   }
 
@@ -41,12 +59,16 @@ export async function registerCardPayment(_prev: ActionState, formData: FormData
         period,
         amount: fromCents(amountCents),
         currency: payCurrency,
+        accountAmount: accountAmountCents === null ? null : fromCents(accountAmountCents),
+        exchangeRate,
         paidAt: dateValue(paidAt),
         accountId,
         note: optStr(formData, 'note'),
       },
       update: {
         amount: fromCents(amountCents),
+        accountAmount: accountAmountCents === null ? null : fromCents(accountAmountCents),
+        exchangeRate,
         paidAt: dateValue(paidAt),
         accountId,
         note: optStr(formData, 'note'),

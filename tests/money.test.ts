@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatMoney, parseAmountInput, splitInstallments, toCents } from '@/lib/money'
+import { convertUsdToUyu, formatMoney, formatRate, parseAmountInput, splitInstallments, toCents } from '@/lib/money'
 
 describe('dinero', () => {
   it('convierte Decimal de Prisma a centavos sin errores de flotante', () => {
@@ -29,5 +29,19 @@ describe('dinero', () => {
     expect(formatMoney(123456, 'UYU')).toBe('$U 1.234,56')
     expect(formatMoney(123456, 'USD')).toBe('US$ 1.234,56')
     expect(formatMoney(100000, 'UYU')).toBe('$U 1.000')
+  })
+})
+
+describe('conversión para pagos', () => {
+  it('convierte dólares a pesos con la cotización configurada', () => {
+    // US$ 229,22 a 41,00 = $U 9.398,02
+    expect(convertUsdToUyu(22_922, 4_100)).toBe(939_802)
+    expect(convertUsdToUyu(10_000, 4_100)).toBe(410_000)
+    expect(convertUsdToUyu(0, 4_100)).toBe(0)
+  })
+
+  it('formatea la cotización con dos decimales', () => {
+    expect(formatRate(4_100)).toBe('41,00')
+    expect(formatRate(4_135)).toBe('41,35')
   })
 })

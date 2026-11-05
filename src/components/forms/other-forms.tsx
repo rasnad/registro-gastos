@@ -8,7 +8,7 @@ import { createCreditCard, updateCreditCard } from '@/app/actions/accounts'
 import { createBill, payBillOccurrence, setBillActualAmount, updateBill } from '@/app/actions/bills'
 import { createGoal, addContribution, updateGoal } from '@/app/actions/goals'
 import { createCategory, updateCategory } from '@/app/actions/categories'
-import { CURRENCIES, type CurrencyCode } from '@/lib/money'
+import { CURRENCIES, convertUsdToUyu, formatRate, parseAmountInput, type CurrencyCode } from '@/lib/money'
 import type { ActionState } from '@/lib/action-state'
 import type { AccountOption, CardOption, CategoryOption } from '@/components/forms/money-forms'
 
@@ -123,6 +123,7 @@ export function CardPaymentForm({
   defaultPeriod,
   defaultAmount,
   defaultCurrency,
+  usdRateCents,
 }: {
   cards: CardOption[]
   accounts: AccountOption[]
@@ -130,10 +131,21 @@ export function CardPaymentForm({
   defaultPeriod: string
   defaultAmount?: string
   defaultCurrency?: CurrencyCode
+  usdRateCents: number
 }) {
   const [cardId, setCardId] = useState(defaultCardId ?? cards[0]?.id ?? '')
   const card = cards.find((item) => item.id === cardId)
   const [payCurrency, setPayCurrency] = useState<CurrencyCode>(defaultCurrency ?? card?.currency ?? 'UYU')
+  const [amountText, setAmountText] = useState(defaultAmount ?? '')
+  const [accountId, setAccountId] = useState('')
+
+  const amountCents = parseAmountInput(amountText) ?? 0
+  const selectedAccount = accounts.find((item) => item.id === accountId)
+  const needsConversion = payCurrency === 'USD' && selectedAccount?.currency === 'UYU'
+  const equivalentCents = convertUsdToUyu(amountCents, usdRateCents)
+  const payableAccounts = accounts.filter(
+    (account) => account.currency === payCurrency || (payCurrency === 'USD' && account.currency === 'UYU'),
+  )
   return (
     <ActionForm action={registerCardPayment} submitLabel="Registrar pago">
       <div className="field-grid">
@@ -155,7 +167,15 @@ export function CardPaymentForm({
       <div className="field-grid">
         <label className="field">
           <span>Importe pagado</span>
-          <input className="input" name="amount" inputMode="decimal" required defaultValue={defaultAmount} placeholder="0,00" />
+          <input
+            className="input"
+            name="amount"
+            inputMode="decimal"
+            required
+            value={amountText}
+            onChange={(event) => setAmountText(event.target.value)}
+            placeholder="0,00"
+          />
         </label>
         <label className="field">
           <span>Moneda</span>
@@ -176,17 +196,33 @@ export function CardPaymentForm({
       </label>
       <label className="field">
         <span>Cuenta desde la que pagaste</span>
-        <select className="select" name="accountId" defaultValue="">
+        <select
+          className="select"
+          name="accountId"
+          value={accountId}
+          onChange={(event) => setAccountId(event.target.value)}
+        >
           <option value="">Fuera de las cuentas registradas</option>
-          {accounts
-            .filter((account) => account.currency === payCurrency)
-            .map((account) => (
-              <option key={account.id} value={account.id}>
-                {account.name}
-              </option>
-            ))}
+          {payableAccounts.map((account) => (
+            <option key={account.id} value={account.id}>
+              {account.name} · {account.currency}
+              {payCurrency === 'USD' && account.currency === 'UYU' ? ' (se debita en pesos)' : ''}
+            </option>
+          ))}
         </select>
         <span className="hint">El pago descuenta esa cuenta una sola vez y salda las cuotas del período.</span>
+        {payCurrency === 'USD' && amountCents > 0 ? (
+          <span className="hint">
+            Equivalente en pesos: {formatRate(usdRateCents)} por dólar →{' '}
+            <strong>
+              $U{' '}
+              {new Intl.NumberFormat('es-UY', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(
+                equivalentCents / 100,
+              )}
+            </strong>
+            {needsConversion ? ' (se debita ese importe de la cuenta en pesos).' : ' (referencia).'}
+          </span>
+        ) : null}
       </label>
       <label className="field">
         <span>Nota (opcional)</span>
@@ -298,7 +334,10 @@ export function BillForm({
         <label className="field">
           <span>Moneda</span>
           {defaults ? (
-            <input className="input" value={currency} disabled />
+            <>
+              <input className="input" value={currency} disabled />
+              <input type="hidden" name="currency" value={defaults.currency} />
+            </>
           ) : (
             <select className="select" name="currency" value={currency} onChange={(event) => setCurrency(event.target.value as CurrencyCode)}>
               <option value="UYU">Pesos (UYU)</option>

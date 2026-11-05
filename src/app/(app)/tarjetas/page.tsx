@@ -4,7 +4,7 @@ import { requireUser } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { loadFinanceData, loadFormOptions } from '@/lib/finance/data'
 import { cardChargedBillsForPeriod, type CurrencyCode } from '@/lib/finance/engine'
-import { sumCents, fromCents } from '@/lib/money'
+import { sumCents, fromCents, convertUsdToUyu, formatRate } from '@/lib/money'
 import { monthLabel, todayISO } from '@/lib/period'
 import { Money, Badge, SectionHead, EmptyState } from '@/components/ui'
 import { Icon } from '@/components/icons'
@@ -212,6 +212,12 @@ export default async function TarjetasPage() {
                         Vence el día {card.dueDay}
                         {cardBills.length > 0 ? ' · incluye cuentas cargadas a la tarjeta' : ''}
                       </span>
+                      {cur === 'USD' && displayAmount > 0 ? (
+                        <p className="hint" style={{ marginTop: 4 }}>
+                          ≈ <Money cents={convertUsdToUyu(displayAmount, user.usdRateCents)} currency="UYU" /> a la
+                          cotización configurada ({formatRate(user.usdRateCents)} por dólar).
+                        </p>
+                      ) : null}
                       {statementTotal != null ? (
                         <p className="hint" style={{ marginTop: 6 }}>
                           Total del resumen de {monthLabel(current)}: <Money cents={statementTotal} currency={cur} />.
@@ -252,6 +258,7 @@ export default async function TarjetasPage() {
                             defaultPeriod={current}
                             defaultCurrency={cur}
                             defaultAmount={fromCents(paymentDefault)}
+                            usdRateCents={user.usdRateCents}
                           />
                         </Dialog>
                         {payment ? (
@@ -452,6 +459,21 @@ export default async function TarjetasPage() {
                         <small>
                           Pagado el {payment.paidAt.toISOString().slice(0, 10)}
                           {payment.account ? ` desde ${payment.account.name}` : ' fuera de las cuentas registradas'}
+                          {payment.accountAmount != null &&
+                          Math.round(Number(payment.accountAmount) * 100) !==
+                            Math.round(Number(payment.amount) * 100) ? (
+                            <>
+                              {' '}
+                              · debitado{' '}
+                              <Money
+                                cents={Math.round(Number(payment.accountAmount) * 100)}
+                                currency={payment.account?.currency ?? 'UYU'}
+                              />
+                              {payment.exchangeRate
+                                ? ` (cotización ${formatRate(payment.exchangeRate)})`
+                                : ''}
+                            </>
+                          ) : null}
                           {payment.note ? ` · ${payment.note}` : ''}
                         </small>
                       </div>

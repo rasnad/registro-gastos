@@ -152,6 +152,7 @@ describe('saldos', () => {
       period: '2025-06',
       amountCents: 40_000,
       currency: 'UYU',
+      accountAmountCents: 40_000,
       paidAt: '2025-06-19',
       accountId: 'acc-uyu',
     })
@@ -414,6 +415,7 @@ describe('regresión: cuentas con tarjeta y pagos de resumen', () => {
       period: '2025-06',
       amountCents: 1_000,
       currency: 'UYU',
+      accountAmountCents: 1_000,
       paidAt: '2025-06-20',
       accountId: 'acc-uyu',
     })
@@ -427,5 +429,73 @@ describe('regresión: cuentas con tarjeta y pagos de resumen', () => {
     input.incomes[0].dayOfMonth = 5
     // Enero a mayo: 5 cobros. Junio todavía no llegó.
     expect(accountBalanceAt(input.accounts[0], input)).toBe(1_000_000 + 5 * 80_000)
+  })
+})
+
+describe('pago de resumen en dólares desde una cuenta en pesos', () => {
+  it('debita el equivalente en pesos y no el importe en dólares', () => {
+    const input = baseInput()
+    input.expenses.push({
+      id: 'usd-1',
+      date: '2025-06-17',
+      merchant: 'OPENAI',
+      amountCents: 10_000,
+      currency: 'USD',
+      categoryId: null,
+      source: 'CREDIT_CARD',
+      accountId: null,
+      creditCardId: 'card-1',
+      installments: 1,
+      origin: 'MANUAL',
+      status: 'CONFIRMED',
+      isEstimated: false,
+    })
+    input.installments.push({
+      id: 'usd-inst-1',
+      expenseId: 'usd-1',
+      cardId: 'card-1',
+      number: 1,
+      count: 1,
+      amountCents: 10_000,
+      currency: 'USD',
+      period: '2025-06',
+      dueDate: null,
+      isPaid: false,
+      isEstimated: false,
+      expenseStatus: 'CONFIRMED',
+    })
+
+    // US$ 100 a $U 41 = $U 4.100 (410.000 centavos)
+    input.cardPayments.push({
+      id: 'pay-usd',
+      creditCardId: 'card-1',
+      period: '2025-06',
+      amountCents: 10_000,
+      currency: 'USD',
+      accountAmountCents: 410_000,
+      paidAt: '2025-06-20',
+      accountId: 'acc-uyu',
+    })
+    input.installments[0].isPaid = true
+
+    expect(accountBalanceAt(input.accounts[0], input)).toBe(1_480_000 - 410_000)
+    expect(computeCurrencySummary(input, 'USD').cardDueNowCents).toBe(0)
+    // La cuenta en pesos no queda con una deuda de US$ 100.
+    expect(computeCurrencySummary(input, 'UYU').cardDueNowCents).toBe(0)
+  })
+
+  it('sin importe de cuenta usa el importe original (pago en la misma moneda)', () => {
+    const input = baseInput()
+    input.cardPayments.push({
+      id: 'pay-uyu',
+      creditCardId: 'card-1',
+      period: '2025-06',
+      amountCents: 40_000,
+      currency: 'UYU',
+      accountAmountCents: null,
+      paidAt: '2025-06-20',
+      accountId: 'acc-uyu',
+    })
+    expect(accountBalanceAt(input.accounts[0], input)).toBe(1_480_000 - 40_000)
   })
 })

@@ -99,3 +99,18 @@ export function splitInstallments(totalCents: number, count: number): number[] {
   const remainder = totalCents - base * count
   return Array.from({ length: count }, (_, i) => (i === count - 1 ? base + remainder : base))
 }
+
+/**
+ * Convierte centavos de dólar a centavos de peso con la cotización configurada.
+ * `rateCents` es cuántos centavos de UYU vale 1 USD (4100 = $U 41,00).
+ * Sólo se usa para el pago de obligaciones USD desde una cuenta en pesos.
+ */
+export function convertUsdToUyu(usdCents: number, rateCents: number): number {
+  if (rateCents <= 0) return 0
+  return Math.round((usdCents * rateCents) / 100)
+}
+
+/** Formatea una cotización (centavos) como "41,00". */
+export function formatRate(rateCents: number): string {
+  return formatNumber(rateCents, { decimals: true })
+}

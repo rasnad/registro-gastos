@@ -111,6 +111,8 @@ export type CardPaymentSnapshot = {
   period: MonthKey
   amountCents: number
   currency: CurrencyCode
+  /** Importe debitado de la cuenta, en la moneda de la cuenta. */
+  accountAmountCents: number | null
   paidAt: ISODate
   accountId: string | null
 }
@@ -258,7 +260,10 @@ export function accountBalanceAt(
     if (expense.date <= asOf) balance -= expense.amountCents
   }
   for (const payment of input.cardPayments) {
-    if (payment.accountId === account.id && payment.paidAt <= asOf) balance -= payment.amountCents
+    if (payment.accountId !== account.id || payment.paidAt > asOf) continue
+    // Si el resumen era en dólares y se pagó desde una cuenta en pesos,
+    // sale el equivalente convertido, no el importe en dólares.
+    balance -= payment.accountAmountCents ?? payment.amountCents
   }
   for (const occurrence of input.billOccurrences) {
     if (occurrence.accountId !== account.id) continue

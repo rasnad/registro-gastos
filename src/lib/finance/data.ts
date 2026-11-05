@@ -161,6 +161,7 @@ export async function loadFinanceData(
     period: payment.period,
     amountCents: toCents(payment.amount),
     currency: payment.currency,
+    accountAmountCents: payment.accountAmount != null ? toCents(payment.accountAmount) : null,
     paidAt: toISODate(payment.paidAt),
     accountId: payment.accountId,
   }))
