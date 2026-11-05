@@ -18,17 +18,6 @@ const SECONDARY_NAV: Array<{ href: string; label: string; icon: IconName }> = [
   { href: '/ajustes', label: 'Ajustes', icon: 'settings' },
 ]
 
-const TITLES: Record<string, { title: string; note?: string }> = {
-  '/': { title: 'Inicio' },
-  '/movimientos': { title: 'Movimientos' },
-  '/tarjetas': { title: 'Tarjetas' },
-  '/proyeccion': { title: 'Proyección' },
-  '/ahorro': { title: 'Ahorro' },
-  '/cuentas': { title: 'Cuentas fijas' },
-  '/ajustes': { title: 'Ajustes' },
-  '/ajustes/importar': { title: 'Importar resumen' },
-}
-
 function initials(name: string) {
   return name
     .split(/\s+/)
@@ -48,7 +37,6 @@ export function AppShell({
   children: ReactNode
 }) {
   const pathname = usePathname()
-  const meta = TITLES[pathname] ?? { title: 'Registro de gastos' }
   const isActive = (href: string) => (href === '/' ? pathname === '/' : pathname.startsWith(href))
 
   return (
@@ -119,18 +107,14 @@ export function AppShell({
 
       <main className="app-main">
         <header className="app-header">
-          <div>
-            <p className="mobile-eyebrow">Registro de gastos</p>
-            <h1>{meta.title}</h1>
-            {meta.note ? <p className="header-note">{meta.note}</p> : null}
-          </div>
           <div className="header-actions">
-            <Link href="/ajustes#gmail" className="icon-button hide-mobile" title="Conexión con Gmail" aria-label="Conexión con Gmail">
-              <Icon name="mail" size={17} />
-            </Link>
-            <Link href="/movimientos?nuevo=1" className="primary-button">
-              <Icon name="plus" size={17} />
-              Nuevo movimiento
+            <Link
+              href="/movimientos?nuevo=1"
+              className="header-add"
+              title="Nuevo movimiento"
+              aria-label="Nuevo movimiento"
+            >
+              <Icon name="plus" size={22} />
             </Link>
             <span className="mobile-avatar" aria-hidden="true">{initials(user.name)}</span>
           </div>

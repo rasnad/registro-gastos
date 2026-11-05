@@ -66,7 +66,7 @@ export default async function HomePage() {
         </Alert>
       ) : null}
 
-      <div className="page-grid">
+      <div className="page-grid home-top">
         <section className="balance-card" aria-label="Saldo disponible">
           <div className="balance-top">
             <span className="soft-icon">
@@ -171,30 +171,17 @@ export default async function HomePage() {
             }
           />
           <UpcomingList items={upcoming} />
-        </section>
-
-        <section className={`insight-card ${uyu.savingsCapacityRawCents < 0 ? 'is-negative' : ''}`}>
-          <div className="insight-icon">
-            <Icon name={uyu.savingsCapacityRawCents < 0 ? 'warning' : 'sparkles'} size={18} />
+          <div className="upcoming-total">
+            <span>Comprometido este mes</span>
+            <strong>
+              <Money cents={uyu.committedCents} currency="UYU" />
+            </strong>
           </div>
-          <div>
-            <span className="eyebrow">{uyu.savingsCapacityRawCents < 0 ? 'Margen ajustado' : 'Cierre estimado'}</span>
-            <h3>
-              {noData
-                ? 'Cargá tu saldo e ingresos para saber cómo cierra el mes'
-                : uyu.savingsCapacityRawCents < 0
-                  ? `Te faltan ${formatMoney(Math.abs(uyu.savingsCapacityRawCents), 'UYU')} para cerrar el mes`
-                  : `Te quedarían ${formatMoney(uyu.savingsCapacityCents, 'UYU')} al cierre del mes`}
-            </h3>
-            <p>
-              Saldo inicial + ingresos − tarjeta − cuentas − gastos. Incluye el monto con el que arrancaste el
-              mes.
-            </p>
-          </div>
-          <Link href="/ahorro" className="link-button" style={{ alignSelf: 'center' }}>
-            Objetivos <Icon name="chevron" size={14} />
+          <Link href="/cuentas" className="link-button" style={{ marginTop: 6 }}>
+            Ver el detalle del mes <Icon name="arrow" size={13} />
           </Link>
         </section>
+
       </div>
 
       <section className="panel">

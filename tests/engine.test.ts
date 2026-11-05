@@ -372,6 +372,8 @@ describe('resumen general', () => {
   it('marca datos faltantes en lugar de inventar cifras', () => {
     const input = baseInput()
     input.incomes = []
+    // Sin saldo inicial ni ingresos no hay con qué proyectar.
+    input.accounts[0].openingCents = 0
     const summary = computeCurrencySummary(input, 'UYU')
     expect(summary.incomeThisMonthCents).toBe(0)
     expect(summary.missing.join(' ')).toMatch(/ingresos/i)
