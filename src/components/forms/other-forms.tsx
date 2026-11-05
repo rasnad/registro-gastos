@@ -137,7 +137,20 @@ export function CardPaymentForm({
   const card = cards.find((item) => item.id === cardId)
   const [payCurrency, setPayCurrency] = useState<CurrencyCode>(defaultCurrency ?? card?.currency ?? 'UYU')
   const [amountText, setAmountText] = useState(defaultAmount ?? '')
-  const [accountId, setAccountId] = useState('')
+  const defaultPayableAccount = (cur: CurrencyCode) =>
+    accounts.find(
+      (account) => account.isDefault && (account.currency === cur || (cur === 'USD' && account.currency === 'UYU')),
+    )?.id ?? ''
+  const [accountId, setAccountId] = useState(
+    defaultPayableAccount(defaultCurrency ?? cards.find((item) => item.id === defaultCardId)?.currency ?? 'UYU'),
+  )
+  function changePayCurrency(next: CurrencyCode) {
+    setPayCurrency(next)
+    const current = accounts.find((account) => account.id === accountId)
+    const payable =
+      current && (current.currency === next || (next === 'USD' && current.currency === 'UYU'))
+    if (!payable) setAccountId(defaultPayableAccount(next))
+  }
 
   const amountCents = parseAmountInput(amountText) ?? 0
   const selectedAccount = accounts.find((item) => item.id === accountId)
@@ -183,7 +196,7 @@ export function CardPaymentForm({
             className="select"
             name="currency"
             value={payCurrency}
-            onChange={(event) => setPayCurrency(event.target.value as CurrencyCode)}
+            onChange={(event) => changePayCurrency(event.target.value as CurrencyCode)}
           >
             <option value="UYU">Pesos (UYU)</option>
             <option value="USD">Dólares (USD)</option>
@@ -299,6 +312,15 @@ export function BillForm({
   const [amountType, setAmountType] = useState<'FIXED' | 'RANGE'>(defaults?.amountType ?? 'FIXED')
   const [currency, setCurrency] = useState<CurrencyCode>(defaults?.currency ?? 'UYU')
   const [paymentSource, setPaymentSource] = useState<'ACCOUNT' | 'CREDIT_CARD'>(defaults?.paymentSource ?? 'ACCOUNT')
+  const defaultAccountFor = (cur: CurrencyCode) =>
+    accounts.find((account) => account.isDefault && account.currency === cur)?.id ?? ''
+  const [accountId, setAccountId] = useState(defaults?.accountId || defaultAccountFor(defaults?.currency ?? 'UYU'))
+
+  function changeCurrency(next: CurrencyCode) {
+    setCurrency(next)
+    const current = accounts.find((account) => account.id === accountId)
+    if (!current || current.currency !== next) setAccountId(defaultAccountFor(next))
+  }
 
   return (
     <ActionForm action={defaults ? updateBill : createBill} submitLabel={defaults ? 'Guardar cambios' : 'Crear cuenta fija'}>
@@ -339,7 +361,7 @@ export function BillForm({
               <input type="hidden" name="currency" value={defaults.currency} />
             </>
           ) : (
-            <select className="select" name="currency" value={currency} onChange={(event) => setCurrency(event.target.value as CurrencyCode)}>
+            <select className="select" name="currency" value={currency} onChange={(event) => changeCurrency(event.target.value as CurrencyCode)}>
               <option value="UYU">Pesos (UYU)</option>
               <option value="USD">Dólares (USD)</option>
             </select>
@@ -392,7 +414,13 @@ export function BillForm({
         {paymentSource === 'ACCOUNT' ? (
           <label className="field">
             <span>Cuenta</span>
-            <select className="select" name="accountId" defaultValue={defaults?.accountId ?? ''} required>
+            <select
+              className="select"
+              name="accountId"
+              value={accountId}
+              onChange={(event) => setAccountId(event.target.value)}
+              required
+            >
               <option value="" disabled>Elegí una cuenta</option>
               {accounts.filter((account) => account.currency === currency).map((account) => (
                 <option key={account.id} value={account.id}>{account.name}</option>
@@ -418,12 +446,27 @@ export function BillForm({
       ) : null}
       <div className="field-grid">
         <label className="field">
-          <span>Desde</span>
-          <input className="input" type="date" name="startDate" required defaultValue={defaults?.startDate ?? today} />
+          <span>Primer mes de pago</span>
+          <input
+            className="input"
+            type="month"
+            name="startDate"
+            required
+            defaultValue={(defaults?.startDate ?? today).slice(0, 7)}
+          />
+          <span className="hint">
+            Las cuentas bimestrales, trimestrales o anuales cuentan desde este mes.
+          </span>
         </label>
         <label className="field">
-          <span>Hasta (opcional)</span>
-          <input className="input" type="date" name="endDate" defaultValue={defaults?.endDate ?? ''} />
+          <span>Último mes (opcional)</span>
+          <input
+            className="input"
+            type="month"
+            name="endDate"
+            defaultValue={defaults?.endDate ? defaults.endDate.slice(0, 7) : ''}
+          />
+          <span className="hint">Dejalo vacío si la cuenta no tiene fin.</span>
         </label>
       </div>
       <label className="field">
@@ -628,7 +671,14 @@ export function ContributionForm({
         </label>
         <label className="field">
           <span>Cuenta (opcional)</span>
-          <select className="select" name="accountId" defaultValue="">
+          <select
+            key={goalId}
+            className="select"
+            name="accountId"
+            defaultValue={
+              accounts.find((account) => account.isDefault && account.currency === goal?.currency)?.id ?? ''
+            }
+          >
             <option value="">Sin descontar de una cuenta</option>
             {accounts
               .filter((account) => !goal || account.currency === goal.currency)

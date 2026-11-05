@@ -186,6 +186,27 @@ export async function toggleIncome(_prev: ActionState, formData: FormData): Prom
   return { ok: true }
 }
 
+/** Marca o quita la cuenta predeterminada (una sola por usuario). */
+export async function toggleDefaultAccount(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const user = await requireUser()
+  const id = str(formData, 'id')
+  const account = await prisma.account.findFirst({ where: { id, userId: user.id } })
+  if (!account) return { error: 'La cuenta no existe.' }
+
+  const next = !account.isDefault
+  await prisma.$transaction(async (tx) => {
+    if (next) {
+      await tx.account.updateMany({ where: { userId: user.id }, data: { isDefault: false } })
+    }
+    await tx.account.update({ where: { id: account.id }, data: { isDefault: next } })
+  })
+  revalidateFinance()
+  return {
+    ok: true,
+    message: next ? 'Cuenta predeterminada guardada.' : 'Se quitó la cuenta predeterminada.',
+  }
+}
+
 /** Marca el punto de partida explícito de una cuenta (evita descontar dos veces). */
 export async function resetOpeningBalance(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const user = await requireUser()

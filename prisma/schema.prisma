@@ -141,6 +141,8 @@ model Account {
   openingBalance Decimal    @db.Decimal(14, 2)
   openingDate   DateTime    @db.Date
   isActive      Boolean     @default(true)
+  // Cuenta que se preselecciona en los formularios (una sola por usuario).
+  isDefault     Boolean     @default(false)
   createdAt     DateTime    @default(now())
 
   user          User                  @relation(fields: [userId], references: [id], onDelete: Cascade)

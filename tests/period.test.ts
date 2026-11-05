@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { monthOrDate } from '@/lib/validation'
 import {
   addMonthsKey,
   countOccurrences,
@@ -46,5 +47,16 @@ describe('períodos de resumen de tarjeta', () => {
     expect(countOccurrences('2025-01-10', '2025-01-10')).toBe(1)
     expect(countOccurrences('2025-01-10', '2025-04-09')).toBe(3)
     expect(countOccurrences('2025-01-10', '2025-04-10')).toBe(4)
+  })
+})
+
+describe('mes o fecha para cuentas recurrentes', () => {
+  it('acepta AAAA-MM y devuelve el primer o último día', () => {
+    expect(monthOrDate('2027-01', 'first')).toBe('2027-01-01')
+    expect(monthOrDate('2027-01', 'last')).toBe('2027-01-31')
+    expect(monthOrDate('2028-02', 'last')).toBe('2028-02-29')
+    expect(monthOrDate('2027-02-15', 'first')).toBe('2027-02-15')
+    expect(monthOrDate('2027-1', 'first')).toBeNull()
+    expect(monthOrDate('', 'first')).toBeNull()
   })
 })

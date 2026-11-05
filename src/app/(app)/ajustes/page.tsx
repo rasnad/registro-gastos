@@ -13,7 +13,7 @@ import { CardForm, CategoryForm, MiniForm } from '@/components/forms/other-forms
 import { GmailSyncButton } from '@/components/gmail-sync'
 import { updateUsdRate } from '@/app/actions/settings'
 import { ActionForm } from '@/components/action-form'
-import { deleteAdjustment, deleteIncome, toggleIncome } from '@/app/actions/accounts'
+import { deleteAdjustment, deleteIncome, toggleDefaultAccount, toggleIncome } from '@/app/actions/accounts'
 import { deactivateCategory, deleteMerchantRule, restoreCategory } from '@/app/actions/categories'
 import { disconnectGmail, dismissGmailMessage, resolveGmailMessage, updateGmailSettings } from '@/app/actions/gmail'
 import { isGmailConfigured } from '@/lib/gmail/client'
@@ -128,7 +128,8 @@ export default async function AjustesPage({ searchParams }: { searchParams: Para
                   </span>
                   <div className="item-main">
                     <strong>
-                      {account.name} {!account.isActive ? <Badge tone="neutral">Inactiva</Badge> : null}
+                      {account.name} {!account.isActive ? <Badge tone="neutral">Inactiva</Badge> : null}{' '}
+                      {account.isDefault ? <Badge tone="info">Predeterminada</Badge> : null}
                     </strong>
                     <small>
                       {account.currency} · saldo inicial {formatMoney(Math.round(Number(account.openingBalance) * 100), account.currency)} desde{' '}
@@ -142,6 +143,12 @@ export default async function AjustesPage({ searchParams }: { searchParams: Para
                     <span className="paid">Saldo actual</span>
                   </div>
                   <div className="actions">
+                    <MiniForm
+                      action={toggleDefaultAccount}
+                      hidden={{ id: account.id }}
+                      label={account.isDefault ? 'Quitar predeterminada' : 'Usar por defecto'}
+                      className="ghost-button small-button"
+                    />
                     <Dialog label="Editar" icon="edit" buttonClassName="ghost-button small-button" title={`Editar ${account.name}`}>
                       <AccountForm
                         defaults={{

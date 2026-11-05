@@ -7,7 +7,7 @@ import { createAccount, createAdjustment, createIncome, updateAccount, updateInc
 import { CURRENCIES, type CurrencyCode } from '@/lib/money'
 import type { ActionState } from '@/lib/action-state'
 
-export type AccountOption = { id: string; name: string; currency: CurrencyCode; kind: string }
+export type AccountOption = { id: string; name: string; currency: CurrencyCode; kind: string; isDefault: boolean }
 export type CardOption = { id: string; name: string; currency: CurrencyCode; closingDay: number; dueDay: number }
 export type CategoryOption = { id: string; name: string; isActive: boolean }
 export type MerchantRule = { pattern: string; categoryId: string }
@@ -62,6 +62,17 @@ export function ExpenseForm({
   const [merchant, setMerchant] = useState(defaults?.merchant ?? '')
   const [categoryId, setCategoryId] = useState(defaults?.categoryId ?? '')
   const [suggestion, setSuggestion] = useState<string | null>(null)
+  const defaultAccountFor = (cur: CurrencyCode) =>
+    accounts.find((account) => account.isDefault && account.currency === cur)?.id ?? ''
+  const [accountId, setAccountId] = useState(
+    defaults?.accountId || defaultAccountFor(defaults?.currency ?? 'UYU'),
+  )
+
+  function changeCurrency(next: CurrencyCode) {
+    setCurrency(next)
+    const current = accounts.find((account) => account.id === accountId)
+    if (!current || current.currency !== next) setAccountId(defaultAccountFor(next))
+  }
 
   const accountsForCurrency = accounts.filter((account) => account.currency === currency)
   // Una tarjeta puede tener consumos en pesos y en dólares (resumen dual).
@@ -144,7 +155,7 @@ export function ExpenseForm({
             className="select"
             name="currency"
             value={currency}
-            onChange={(event) => setCurrency(event.target.value as CurrencyCode)}
+            onChange={(event) => changeCurrency(event.target.value as CurrencyCode)}
           >
             {CURRENCIES.map((item) => (
               <option key={item} value={item}>
@@ -201,7 +212,13 @@ export function ExpenseForm({
       {source === 'ACCOUNT' ? (
         <label className="field">
           <span>Cuenta de origen</span>
-          <select className="select" name="accountId" defaultValue={defaults?.accountId ?? ''} required>
+          <select
+            className="select"
+            name="accountId"
+            value={accountId}
+            onChange={(event) => setAccountId(event.target.value)}
+            required
+          >
             <option value="" disabled>
               Elegí una cuenta
             </option>
@@ -337,7 +354,12 @@ export function AdjustmentForm({ accounts }: { accounts: AccountOption[] }) {
     <ActionForm action={createAdjustment} submitLabel="Registrar ajuste">
       <label className="field">
         <span>Cuenta</span>
-        <select className="select" name="accountId" required defaultValue="">
+        <select
+          className="select"
+          name="accountId"
+          required
+          defaultValue={accounts.find((account) => account.isDefault)?.id ?? ''}
+        >
           <option value="" disabled>
             Elegí una cuenta
           </option>
@@ -430,7 +452,12 @@ export function IncomeForm({ accounts }: { accounts: AccountOption[] }) {
       </div>
       <label className="field">
         <span>Cuenta donde entra (opcional)</span>
-        <select className="select" name="accountId" defaultValue="">
+        <select
+          key={currency}
+          className="select"
+          name="accountId"
+          defaultValue={accounts.find((account) => account.isDefault && account.currency === currency)?.id ?? ''}
+        >
           <option value="">Sin asignar</option>
           {accounts
             .filter((account) => account.currency === currency)

@@ -212,6 +212,11 @@ Tablas principales: `User`, `Account`, `Income`, `BalanceAdjustment`, `Expense`,
 8. **Conciliación** ⇒ clave estable por operación (medio de pago + fecha + importe + comercio
    normalizado + cuotas). Gmail y resumen no crean un gasto si ya existe una coincidencia
    `exact`/`likely`; las coincidencias dudosas se muestran para que decidas.
+9. **Cuentas recurrentes** ⇒ la frecuencia (mensual, bimestral, trimestral…) se cuenta desde el
+   **primer mes de pago** elegido al crearla, no desde el mes actual. Si el primer mes es futuro, la
+   cuenta no aparece como vencida antes de tiempo.
+10. **Cuenta predeterminada** ⇒ una cuenta puede marcarse como predeterminada; se preselecciona en los
+    formularios de gasto, cuenta fija, ingreso, ajuste, aporte y pago de resumen (si la moneda coincide).
 
 ### Períodos de tarjeta
 
@@ -300,7 +305,7 @@ Cobertura de los puntos críticos:
 | Pago USD desde cuenta UYU | Convierte con la cotización configurada, debita pesos y salda la cuota en dólares. |
 | Parsers | Extracción de avisos de consumo y de resúmenes, columnas pesos/dólares, cuotas N/M, líneas omitidas, datos faltantes e instrucciones sospechosas ignoradas. |
 
-Resultado: **62/62 tests OK** y **build de producción OK**. El smoke test E2E (login → alta de gasto →
+Resultado: **63/63 tests OK** y **build de producción OK**. El smoke test E2E (login → alta de gasto →
 verificación de saldo → borrado → importación manual → estado "por revisar") pasó sin errores de
 consola.
 

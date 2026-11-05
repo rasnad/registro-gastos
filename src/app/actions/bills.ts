@@ -5,7 +5,7 @@ import { prisma } from '@/lib/db'
 import { requireUser } from '@/lib/auth'
 import { fromCents } from '@/lib/money'
 import { revalidateFinance } from '@/lib/revalidate'
-import { bool, cents, currency, dateValue, dayOfMonth, isoDate, monthKey, optStr, str } from '@/lib/validation'
+import { bool, cents, currency, dateValue, dayOfMonth, isoDate, monthKey, monthOrDate, optStr, str } from '@/lib/validation'
 import type { ActionState } from '@/lib/action-state'
 
 const AMOUNT_TYPES = ['FIXED', 'RANGE'] as const
@@ -35,8 +35,10 @@ async function parseBill(formData: FormData, userId: string): Promise<{ data?: P
   const amountType = str(formData, 'amountType')
   const frequency = str(formData, 'frequency') || 'MONTHLY'
   const paymentSource = str(formData, 'paymentSource') || 'ACCOUNT'
-  const startDate = isoDate(formData, 'startDate')
-  const endDate = isoDate(formData, 'endDate')
+  // El formulario manda AAAA-MM ("primer mes de pago"); también acepta fecha completa.
+  const startDate = monthOrDate(str(formData, 'startDate'), 'first')
+  const endDateRaw = str(formData, 'endDate')
+  const endDate = endDateRaw ? monthOrDate(endDateRaw, 'last') : null
 
   if (!name) return { error: 'Ponele un nombre a la cuenta.' }
   if (!cur) return { error: 'Elegí la moneda.' }

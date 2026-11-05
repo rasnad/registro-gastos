@@ -11,7 +11,7 @@ import {
   type BillSnapshot,
 } from '@/lib/finance/engine'
 import { addMonthsKey, dateInMonth, isRecurringInPeriod, monthLabel, recurrenceStepMonths, todayISO } from '@/lib/period'
-import { fromCents, sumCents, type CurrencyCode } from '@/lib/money'
+import { fromCents, type CurrencyCode } from '@/lib/money'
 import { Money, Badge, SectionHead, EmptyState } from '@/components/ui'
 import { Icon } from '@/components/icons'
 import { Dialog } from '@/components/dialog'
@@ -149,6 +149,8 @@ export default async function CuentasPage() {
                             : bill.frequency === 'SEMIANNUAL'
                               ? 'semestral'
                               : 'anual'}
+                      {' · desde '}
+                      {monthLabel(bill.startDate.toISOString().slice(0, 7))}
                       {bill.account ? ` · ${bill.account.name}` : ''}
                       {bill.creditCard ? ` · ${bill.creditCard.name}` : ''}
                     </small>
@@ -278,49 +280,6 @@ export default async function CuentasPage() {
         </div>
       </section>
 
-      <section className="panel">
-        <SectionHead title="Próximos meses" note="Cuentas que se van a cobrar (incluye las cargadas a tarjeta en su resumen)" />
-        <div className="table-wrap">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Mes</th>
-                <th className="num">UYU</th>
-                <th className="num">USD</th>
-                <th>Supuestos</th>
-              </tr>
-            </thead>
-            <tbody>
-              {[addMonthsKey(current, 1), addMonthsKey(current, 2), addMonthsKey(current, 3)].map((month) => {
-                const bankBills = billsInMonth(data.input, month).filter((item) => !item.chargedToCard)
-                const cardBills = cardChargedBillsForPeriod(data.input, 'UYU', month)
-                const cardBillsUsd = cardChargedBillsForPeriod(data.input, 'USD', month)
-                const uyu = sumCents([...bankBills, ...cardBills].filter((item) => item.bill.currency === 'UYU').map((item) => item.expectedCents))
-                const usd = sumCents([...bankBills, ...cardBills, ...cardBillsUsd].filter((item) => item.bill.currency === 'USD').map((item) => item.expectedCents))
-                const variables = bankBills.filter((item) => !item.exact).length
-                return (
-                  <tr key={month}>
-                    <td>{monthLabel(month)}</td>
-                    <td className="num">
-                      <Money cents={uyu} currency="UYU" />
-                    </td>
-                    <td className="num">
-                      <Money cents={usd} currency="USD" />
-                    </td>
-                    <td className="hint">
-                      {variables > 0 ? `${variables} con importe variable (rango)` : 'Importes definidos'}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-        <p className="hint" style={{ marginTop: 10 }}>
-          Los meses futuros muestran el importe fijo o el promedio del rango. El pago del resumen de tarjeta no se
-          cuenta como una cuenta más.
-        </p>
-      </section>
     </div>
   )
 }
