@@ -539,8 +539,8 @@ export function computeCurrencySummary(
   if (!input.accounts.some((a) => a.currency === currency)) {
     missing.push('No hay cuentas con saldo registradas en esta moneda.')
   }
-  if (monthIncomes.length === 0) {
-    missing.push('No registraste ingresos para este mes.')
+  if (monthIncomes.length === 0 && availableCents <= 0) {
+    missing.push('No registraste ingresos para este mes y no hay saldo en cuentas.')
   }
   if (future.length === 0 && input.installments.length === 0 && input.expenses.some((e) => e.creditCardId)) {
     missing.push('Hay compras con tarjeta sin cuotas generadas.')
@@ -699,7 +699,7 @@ export function projectMonths(
     let billsMinCents = 0
     let billsMaxCents = 0
     for (const item of monthBills) {
-      if (isCurrent && item.dueDate < input.today) continue
+      // Si sigue impaga, se debe pagar aunque el vencimiento ya haya pasado.
       billsCents += scenarioAmount(item, scenario)
       billsMinCents += item.minCents
       billsMaxCents += item.maxCents
@@ -1006,6 +1006,17 @@ export function buildOverview(
     UYU: projectMonths(input, 'UYU', months, projectionOptions),
     USD: projectMonths(input, 'USD', months, projectionOptions),
   }
+
+  // El margen del mes en curso sale del cierre proyectado: incluye el saldo
+  // inicial de las cuentas y no sólo los ingresos del mes.
+  for (const currency of ['UYU', 'USD'] as CurrencyCode[]) {
+    const currentFlow = projections[currency][0]
+    if (!currentFlow) continue
+    const capacity = currentFlow.endCents
+    summaries[currency].savingsCapacityRawCents = capacity
+    summaries[currency].savingsCapacityCents = clampZero(capacity)
+  }
+
   return {
     today: input.today,
     currentMonth: currentOf(input),

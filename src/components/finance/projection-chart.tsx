@@ -15,20 +15,21 @@ export function ProjectionChart({
   compact?: boolean
 }) {
   if (flows.length === 0) return null
-  const max = Math.max(
-    1,
-    ...flows.map((flow) => Math.max(flow.incomeCents, flow.cardCents + flow.billsCents + flow.otherExpensesCents)),
-  )
+  const availableOf = (flow: MonthlyFlow) => flow.startCents + flow.incomeCents
+  const outflowsOf = (flow: MonthlyFlow) =>
+    flow.cardCents + flow.billsCents + flow.otherExpensesCents + flow.savingsCents
+  const max = Math.max(1, ...flows.map((flow) => Math.max(availableOf(flow), outflowsOf(flow))))
   const visible = compact ? flows.slice(0, 4) : flows
 
   return (
     <div className="bar-chart" role="img" aria-label={`Proyección de los próximos ${visible.length} meses en ${currency}`}>
       {visible.map((flow) => {
-        const outflows = flow.cardCents + flow.billsCents + flow.otherExpensesCents
+        const available = availableOf(flow)
+        const outflows = outflowsOf(flow)
         return (
           <div className="chart-column" key={flow.period}>
             <div className="bars">
-              <span className="income-bar" style={{ height: `${Math.max(2, (flow.incomeCents / max) * 100)}%` }} />
+              <span className="income-bar" style={{ height: `${Math.max(2, (available / max) * 100)}%` }} />
               <span className="expense-bar" style={{ height: `${Math.max(2, (outflows / max) * 100)}%` }} />
             </div>
             <strong>{monthLabel(flow.period, { short: true, year: false })}</strong>

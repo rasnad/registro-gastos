@@ -106,7 +106,7 @@ export default async function ProyeccionPage({ searchParams }: { searchParams: P
             </div>
             <div className="projection-legend">
               <span>
-                <i className="income" /> Ingresos
+                <i className="income" /> Disponible (inicio + ingresos)
               </span>
               <span>
                 <i className="expense" /> Tarjeta, cuentas y gastos

@@ -236,7 +236,11 @@ Tablas principales: `User`, `Account`, `Income`, `BalanceAdjustment`, `Expense`,
 - **Ahorro posible** = ingresos del mes − tarjeta − cuentas − gastos − ahorro programado (nunca menor
   a cero para mostrar).
 - **Proyección** = mes a mes con ingresos, cuotas, cuentas, gastos y ahorro; las cuentas variables se
-  muestran como rango y hay escenario base/conservador/optimista.
+  muestran como rango y hay escenario base/conservador/optimista. El primer mes parte del **saldo
+  disponible** (incluye el monto inicial que cargaste) y la barra verde del gráfico muestra ese
+  disponible + ingresos del mes.
+- **Cierre estimado** = cierre proyectado del mes en curso: saldo inicial + ingresos − tarjeta −
+  cuentas − gastos − ahorro programado. Es el número de la tarjeta "Cierre estimado".
 
 Cuando falta un dato (sin ingresos, cuotas vencidas, importes variables sin valor real), la app lo
 dice explícitamente y **no** presenta el número como exacto.

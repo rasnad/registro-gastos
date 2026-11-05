@@ -178,18 +178,17 @@ export default async function HomePage() {
             <Icon name={uyu.savingsCapacityRawCents < 0 ? 'warning' : 'sparkles'} size={18} />
           </div>
           <div>
-            <span className="eyebrow">{uyu.savingsCapacityRawCents < 0 ? 'Margen ajustado' : 'Ahorro posible'}</span>
+            <span className="eyebrow">{uyu.savingsCapacityRawCents < 0 ? 'Margen ajustado' : 'Cierre estimado'}</span>
             <h3>
               {noData
-                ? 'Cargá tu saldo e ingresos para saber cuánto podés ahorrar'
+                ? 'Cargá tu saldo e ingresos para saber cómo cierra el mes'
                 : uyu.savingsCapacityRawCents < 0
-                  ? `Te faltan ${formatMoney(Math.abs(uyu.savingsCapacityRawCents), 'UYU')} para cubrir el mes`
-                  : `Podrías ahorrar hasta ${formatMoney(uyu.savingsCapacityCents, 'UYU')} este mes`}
+                  ? `Te faltan ${formatMoney(Math.abs(uyu.savingsCapacityRawCents), 'UYU')} para cerrar el mes`
+                  : `Te quedarían ${formatMoney(uyu.savingsCapacityCents, 'UYU')} al cierre del mes`}
             </h3>
             <p>
-              {uyu.savingsCapacityRawCents < 0
-                ? 'Ingresos del mes menos tarjeta, cuentas y gastos ya registrados.'
-                : 'Calculado con tus ingresos, la tarjeta del mes, las cuentas pendientes y los gastos ya registrados.'}
+              Saldo inicial + ingresos − tarjeta − cuentas − gastos. Incluye el monto con el que arrancaste el
+              mes.
             </p>
           </div>
           <Link href="/ahorro" className="link-button" style={{ alignSelf: 'center' }}>
@@ -227,6 +226,10 @@ export default async function HomePage() {
         ) : (
           <>
         <ProjectionChart flows={uyuFlows} currency="UYU" />
+        <p className="hint" style={{ marginTop: 8 }}>
+          La barra verde es el dinero disponible para cada mes (saldo con el que arranca + ingresos). La barra
+          rosa, todo lo que sale: tarjeta, cuentas, gastos y ahorro programado.
+        </p>
         <div className="row" style={{ marginTop: 14, gap: 18 }}>
           <span className="hint">
             En {monthLabel(endOfHorizon?.period ?? overview.currentMonth)} te quedarían{' '}
