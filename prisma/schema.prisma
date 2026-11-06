@@ -475,7 +475,8 @@ model GmailConnection {
   tokenExpiresAt DateTime?
   scopes        String
   status        GmailStatus @default(ACTIVE)
-  importFrom    DateTime    @db.Date
+  // Momento desde el que se escuchan correos: se fija al conectar.
+  importFrom    DateTime
   autoSync      Boolean     @default(true)
   lastSyncAt    DateTime?
   lastSyncStatus SyncStatus?

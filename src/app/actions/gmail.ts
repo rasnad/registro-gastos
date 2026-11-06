@@ -5,7 +5,6 @@ import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/db'
 import { requireUser } from '@/lib/auth'
 import { syncGmailForUser } from '@/lib/gmail/sync'
-import { isoDate } from '@/lib/validation'
 import type { ActionState } from '@/lib/action-state'
 
 function revalidateGmail() {
@@ -20,16 +19,9 @@ export async function updateGmailSettings(_prev: ActionState, formData: FormData
   const connection = await prisma.gmailConnection.findUnique({ where: { userId: user.id } })
   if (!connection) return { error: 'Gmail no está conectado.' }
 
-  const importFrom = isoDate(formData, 'importFrom')
-  if (!importFrom) return { error: 'Elegí desde qué fecha importar.' }
-  if (importFrom > new Date().toISOString().slice(0, 10)) {
-    return { error: 'La fecha de importación no puede ser futura.' }
-  }
-
   await prisma.gmailConnection.update({
     where: { userId: user.id },
     data: {
-      importFrom: new Date(`${importFrom}T00:00:00.000Z`),
       autoSync: formData.get('autoSync') === 'on',
     },
   })

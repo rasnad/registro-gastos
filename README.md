@@ -147,7 +147,8 @@ No se piden contactos, calendario, Drive ni acceso al perfil completo.
 ### 4.3 Conectar y sincronizar
 
 - Ir a **Ajustes → Conexión con Gmail → Conectar mi cuenta**.
-- Elegir **desde qué fecha importar** y guardar. Se ignoran correos anteriores.
+- Al conectar se fija el **momento de inicio**: sólo se escuchan correos desde ese instante. No se
+  importa nada anterior (no hay campo "importar desde").
 - **Sincronizar ahora** procesa hasta 120 mensajes nuevos por corrida.
 - Los asuntos buscados son:
   - `Aviso de consumo aprobado con tarjeta de crédito`

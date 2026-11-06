@@ -71,7 +71,8 @@ export async function syncGmailForUser(userId: string): Promise<SyncResult> {
   try {
     const refreshToken = decryptToken(connection.refreshToken)
     const gmail = gmailForRefreshToken(refreshToken)
-    const after = connection.importFrom.toISOString().slice(0, 10).replace(/-/g, '/')
+    const since = connection.importFrom
+    const after = since.toISOString().slice(0, 10).replace(/-/g, '/')
 
     const cards = await prisma.creditCard.findMany({ where: { userId, isActive: true } })
     const accounts = await prisma.account.findMany({ where: { userId, isActive: true } })
@@ -121,6 +122,23 @@ export async function syncGmailForUser(userId: string): Promise<SyncResult> {
           where: { connectionId_messageId: { connectionId: connection.id, messageId: item.id } },
         })
         if (already) {
+          skipped += 1
+          continue
+        }
+
+        // No procesar nada anterior al momento en que se conectó Gmail.
+        const listedInternalDate = item.internalDate ? Number(item.internalDate) : null
+        if (listedInternalDate !== null && listedInternalDate < since.getTime()) {
+          const received = receivedDate(item.internalDate ?? null)
+          await prisma.processedGmailMessage.create({
+            data: {
+              connectionId: connection.id,
+              messageId: item.id,
+              receivedAt: received ? new Date(`${received}T00:00:00.000Z`) : null,
+              status: 'SKIPPED_IRRELEVANT',
+              reason: 'Anterior al momento en que conectaste Gmail.',
+            },
+          })
           skipped += 1
           continue
         }

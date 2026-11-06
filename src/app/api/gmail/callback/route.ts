@@ -33,8 +33,6 @@ export async function GET(request: Request) {
     const profile = await gmail.users.getProfile({ userId: 'me' })
     const emailAddress = profile.data.emailAddress ?? 'cuenta de Gmail'
 
-    const existing = await prisma.gmailConnection.findUnique({ where: { userId: payload.userId } })
-    const importFrom = existing?.importFrom ?? new Date(new Date().setDate(new Date().getDate() - 30))
 
     await prisma.gmailConnection.upsert({
       where: { userId: payload.userId },
@@ -46,7 +44,8 @@ export async function GET(request: Request) {
         tokenExpiresAt: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
         scopes: (tokens.scope ?? '').slice(0, 500),
         status: 'ACTIVE',
-        importFrom,
+        // Escucha correos desde el momento de la conexión: nada del pasado.
+        importFrom: new Date(),
       },
       update: {
         emailAddress,
@@ -56,6 +55,8 @@ export async function GET(request: Request) {
         scopes: (tokens.scope ?? '').slice(0, 500),
         status: 'ACTIVE',
         lastSyncError: null,
+        // Al reconectar, vuelve a escuchar desde ese momento.
+        importFrom: new Date(),
       },
     })
 

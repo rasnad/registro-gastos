@@ -4,7 +4,7 @@ import { requireUser } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { loadFinanceData, loadFormOptions } from '@/lib/finance/data'
 import { convertUsdToUyu, fromCents, formatMoney, formatRate, type CurrencyCode } from '@/lib/money'
-import { dateLabel, monthLabel, toISODate, todayISO } from '@/lib/period'
+import { APP_TIME_ZONE, dateLabel, monthLabel, toISODate, todayISO } from '@/lib/period'
 import { Money, Alert, Badge, SectionHead, EmptyState } from '@/components/ui'
 import { Icon, type IconName } from '@/components/icons'
 import { Dialog } from '@/components/dialog'
@@ -529,24 +529,24 @@ export default async function AjustesPage({ searchParams }: { searchParams: Para
               {connection?.lastSyncError ? <Alert tone="danger">{connection.lastSyncError}</Alert> : null}
 
               <div className="form-section">
+                <p className="hint" style={{ marginBottom: 10 }}>
+                  Escucha correos desde el{' '}
+                  <strong>
+                    {connection
+                      ? new Intl.DateTimeFormat('es-UY', {
+                          dateStyle: 'short',
+                          timeStyle: 'short',
+                          timeZone: APP_TIME_ZONE,
+                        }).format(connection.importFrom)
+                      : '-'}
+                  </strong>
+                  . No se importa nada anterior a la conexión.
+                </p>
                 <ActionForm action={updateGmailSettings} submitLabel="Guardar configuración" compact>
-                  <div className="field-grid">
-                    <label className="field">
-                      <span>Importar desde</span>
-                      <input
-                        className="input"
-                        type="date"
-                        name="importFrom"
-                        required
-                        defaultValue={connection?.importFrom.toISOString().slice(0, 10)}
-                      />
-                      <span className="hint">Los correos anteriores a esta fecha se ignoran.</span>
-                    </label>
-                    <label className="checkbox" style={{ marginTop: 22 }}>
-                      <input type="checkbox" name="autoSync" defaultChecked={connection?.autoSync} />
-                      <span>Sincronización automática diaria (Vercel Cron)</span>
-                    </label>
-                  </div>
+                  <label className="checkbox">
+                    <input type="checkbox" name="autoSync" defaultChecked={connection?.autoSync} />
+                    <span>Sincronización automática diaria (Vercel Cron)</span>
+                  </label>
                 </ActionForm>
               </div>
 
