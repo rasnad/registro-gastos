@@ -86,7 +86,8 @@ function moneyValue(item: PdfTextItem): number | null {
 
 /** Agrupa fragmentos que comparten renglón (tolerancia de 2.5 pt). */
 function groupLines(page: PdfTextItem[]): PdfTextItem[][] {
-  const sorted = [...page].sort((a, b) => a.y - b.y || a.x - b.x)
+  // En estos PDF el eje Y crece hacia arriba: descendente = de arriba hacia abajo.
+  const sorted = [...page].sort((a, b) => b.y - a.y || a.x - b.x)
   const lines: PdfTextItem[][] = []
   let current: PdfTextItem[] = []
   let currentY: number | null = null

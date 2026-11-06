@@ -253,13 +253,7 @@ export async function parseStatementPreview(formData: FormData): Promise<Stateme
     }
   })
 
-  rows.sort((first, second) => {
-    if (first.date && second.date) return first.date < second.date ? 1 : first.date > second.date ? -1 : 0
-    if (first.date) return -1
-    if (second.date) return 1
-    return 0
-  })
-
+  // Se conserva el orden de las líneas del PDF/estado de cuenta.
   return {
     cardId: card.id,
     fileName,

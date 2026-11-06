@@ -281,7 +281,9 @@ SALDO CONTADO 28.702,49 229,22        ← total del resumen por moneda
 
 1. **Ajustes → Importar resumen** (o desde Tarjetas).
 2. Elegir tarjeta y subir el PDF (máx. 10 MB) o pegar el texto, o cargar a mano.
-3. Se muestra una **vista previa editable** con confiabilidad, cierre, vencimiento, total y filas.
+3. Se muestra una **vista previa editable** con confiabilidad, cierre, vencimiento, total y filas,
+   respetando el **orden del PDF**. Con el filtro "Agrupar cuotas" se ordenan primero los gastos
+   puntuales y después las compras en cuotas.
 4. Cada fila puede corregirse, excluirse o marcarse como "Incompleta" (queda para revisión).
 5. Se detectan **posibles duplicados** contra gastos ya cargados (correo, manual, otro resumen).
 6. Sólo se importa lo que confirmás. El PDF **no se guarda**; se conserva su hash SHA-256.

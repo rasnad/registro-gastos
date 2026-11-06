@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useActionState, useState } from 'react'
+import { Fragment, useActionState, useState } from 'react'
 import {
   confirmStatementImport,
   parseStatementPreview,
@@ -35,6 +35,7 @@ export function StatementWizard({
   const [rows, setRows] = useState<PreviewRow[]>([])
   const [period, setPeriod] = useState('')
   const [saveRules, setSaveRules] = useState(true)
+  const [grouped, setGrouped] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [analyzing, setAnalyzing] = useState(false)
   const [state, action, pending] = useActionState(confirmStatementImport, {})
@@ -42,10 +43,29 @@ export function StatementWizard({
   const card = cards.find((item) => item.id === cardId)
   const included = rows.filter((row) => row.include && !row.excludedReason)
   const excluded = rows.filter((row) => row.excludedReason)
+  const isInstallmentRow = (row: PreviewRow) => (row.installments ?? 1) > 1
+  const visibleEntries = rows
+    .map((row, index) => ({ row, index }))
+    .filter((entry) => !entry.row.excludedReason)
+  const orderedEntries = grouped
+    ? [
+        ...visibleEntries.filter((entry) => !isInstallmentRow(entry.row)),
+        ...visibleEntries.filter((entry) => isInstallmentRow(entry.row)),
+      ]
+    : visibleEntries
+  const oneOffCount = orderedEntries.filter((entry) => !isInstallmentRow(entry.row)).length
+  const installmentCount = orderedEntries.filter((entry) => isInstallmentRow(entry.row)).length
+
+  const sumSelected = (installments: boolean, currency: 'UYU' | 'USD') =>
+    included
+      .filter((row) => isInstallmentRow(row) === installments && row.currency === currency)
+      .reduce((acc, row) => acc + (row.amountCents ?? 0), 0)
+  const cashUyu = sumSelected(false, 'UYU')
+  const cashUsd = sumSelected(false, 'USD')
+  const installUyu = sumSelected(true, 'UYU')
+  const installUsd = sumSelected(true, 'USD')
   const totalUyu = preview?.meta?.totals?.UYU ?? null
   const totalUsd = preview?.meta?.totals?.USD ?? null
-  const selectedUyu = included.filter((row) => row.currency === 'UYU').reduce((acc, row) => acc + (row.amountCents ?? 0), 0)
-  const selectedUsd = included.filter((row) => row.currency === 'USD').reduce((acc, row) => acc + (row.amountCents ?? 0), 0)
 
   async function analyze() {
     setError(null)
@@ -372,13 +392,22 @@ export function StatementWizard({
               ) : null}
               {totalUyu == null && totalUsd == null ? <span className="hint">No se detectaron</span> : null}
             </div>
-            <span className="hint">
-              Suma de lo seleccionado: <Money cents={selectedUyu} currency="UYU" />
-              {selectedUsd > 0 ? <> · <Money cents={selectedUsd} currency="USD" /></> : null}
-              {totalUyu != null || totalUsd != null
-                ? ' · la diferencia con el total del resumen son pagos o créditos ya aplicados por el banco.'
-                : ''}
-            </span>
+            <div className="import-split">
+              <div>
+                <span>Contado</span>
+                <strong>
+                  <Money cents={cashUyu} currency="UYU" />
+                  {cashUsd > 0 ? <> · <Money cents={cashUsd} currency="USD" /></> : null}
+                </strong>
+              </div>
+              <div>
+                <span>Cuotas</span>
+                <strong>
+                  <Money cents={installUyu} currency="UYU" />
+                  {installUsd > 0 ? <> · <Money cents={installUsd} currency="USD" /></> : null}
+                </strong>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -393,6 +422,22 @@ export function StatementWizard({
         <div className="between" style={{ marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
           <h2 className="section-title">Consumos del resumen</h2>
           <div className="row">
+            <div className="segmented" role="group" aria-label="Orden de las filas">
+              <button
+                type="button"
+                className={grouped ? '' : 'selected'}
+                onClick={() => setGrouped(false)}
+              >
+                Orden del resumen
+              </button>
+              <button
+                type="button"
+                className={grouped ? 'selected' : ''}
+                onClick={() => setGrouped(true)}
+              >
+                Agrupar cuotas
+              </button>
+            </div>
             <button type="button" className="ghost-button small-button" onClick={addRow}>
               <Icon name="plus" size={14} /> Agregar fila
             </button>
@@ -409,9 +454,19 @@ export function StatementWizard({
           </div>
         ) : (
           <div className="stack-sm">
-            {rows.map((row, index) =>
-              row.excludedReason ? null : (
-                <div className={`import-row ${row.matches.length > 0 ? 'needs-review' : ''}`} key={row.key}>
+            {grouped && oneOffCount > 0 ? (
+              <p className="import-group-title">Gastos puntuales ({oneOffCount})</p>
+            ) : null}
+            {orderedEntries.map(({ row, index }, position) => {
+              const previous = orderedEntries[position - 1]
+              const showInstallmentDivider =
+                grouped && isInstallmentRow(row) && (!previous || !isInstallmentRow(previous.row))
+              return (
+                <Fragment key={row.key}>
+                  {showInstallmentDivider ? (
+                    <p className="import-group-title">En cuotas ({installmentCount})</p>
+                  ) : null}
+                <div className={`import-row ${row.matches.length > 0 ? 'needs-review' : ''}`}>
                   <div className="import-grid">
                     <label className="checkbox" style={{ margin: 0 }}>
                       <input
@@ -515,8 +570,9 @@ export function StatementWizard({
                     ))}
                   </div>
                 </div>
-              ),
-            )}
+                </Fragment>
+              )
+            })}
           </div>
         )}
 
