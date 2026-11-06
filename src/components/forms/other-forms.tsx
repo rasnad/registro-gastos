@@ -744,6 +744,10 @@ export function CategoryForm({
             <option value="glass">Vaso</option>
             <option value="scooter">Delivery</option>
             <option value="car">Auto</option>
+            <option value="plane">Avión</option>
+            <option value="gift">Regalos</option>
+            <option value="beer">Cerveza</option>
+            <option value="bill">Billete / préstamo</option>
             <option value="dots">Puntos</option>
           </select>
         </label>

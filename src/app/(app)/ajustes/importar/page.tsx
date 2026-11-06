@@ -26,7 +26,7 @@ export default async function ImportarPage({ searchParams }: { searchParams: Par
     prisma.category.findMany({
       where: { userId: user.id, isActive: true },
       orderBy: { name: 'asc' },
-      select: { id: true, name: true },
+      select: { id: true, name: true, icon: true, color: true },
     }),
   ])
 

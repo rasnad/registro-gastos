@@ -5,7 +5,6 @@ import { loadFinanceData } from '@/lib/finance/data'
 import { Money, Alert, SectionHead, Badge } from '@/components/ui'
 import { Icon } from '@/components/icons'
 import { dateLabel, monthLabel, todayISO } from '@/lib/period'
-import { formatMoney } from '@/lib/money'
 import { ProjectionChart, UpcomingList } from '@/components/finance/projection-chart'
 
 export const metadata: Metadata = { title: 'Inicio' }
@@ -25,10 +24,6 @@ export default async function HomePage() {
     usd.cardFutureCents > 0 ||
     usd.committedCents > 0
 
-  const base = Math.max(1, uyu.availableCents + uyu.committedCents)
-  const hasMoney = uyu.availableCents + uyu.committedCents > 0
-  const availablePct = hasMoney ? Math.max(0, Math.min(100, Math.round((uyu.availableCents / base) * 100))) : 0
-  const committedPct = hasMoney ? Math.max(0, 100 - availablePct) : 0
   const noData =
     data.input.accounts.length === 0 &&
     data.input.incomes.length === 0 &&
@@ -59,9 +54,16 @@ export default async function HomePage() {
       {uyu.missing.length > 0 || (hasUsd && usd.missing.length > 0) ? (
         <Alert tone="warn" title="Faltan datos para una proyección confiable">
           <ul style={{ margin: '4px 0 0', paddingLeft: 16 }}>
-            {[...new Set([...uyu.missing, ...(hasUsd ? usd.missing : [])])].slice(0, 3).map((item) => (
-              <li key={item}>{item}</li>
-            ))}
+            {[
+              ...new Set([
+                ...uyu.missing.map((item) => `Pesos: ${item}`),
+                ...(hasUsd ? usd.missing.map((item) => `Dólares: ${item}`) : []),
+              ]),
+            ]
+              .slice(0, 3)
+              .map((item) => (
+                <li key={item}>{item}</li>
+              ))}
           </ul>
         </Alert>
       ) : null}
@@ -78,65 +80,28 @@ export default async function HomePage() {
           </div>
 
           <div className="balance-copy">
-            <p>Disponible después de compromisos</p>
+            <p>Disponibles después de cuentas</p>
             <div className="balance-value">
               <Money cents={uyu.afterCommitmentsCents} currency="UYU" />
               <small>
                 saldo en cuentas: <Money cents={uyu.availableCents} currency="UYU" />
               </small>
             </div>
-            <small>
-              Comprometido este mes: {formatMoney(uyu.committedCents, 'UYU')}
-              {uyu.cardOverdueCents > 0
-                ? ` · incluye ${formatMoney(uyu.cardOverdueCents, 'UYU')} de resúmenes vencidos`
-                : ''}
-            </small>
           </div>
 
-          <div className="balance-stats">
+          <div className="hero-breakdown">
             <div>
-              <span className="stat-dot coral" />
-              <p>Gastado</p>
+              <span>Cuentas fijas</span>
               <strong>
-                <Money cents={uyu.spentThisMonthCents} currency="UYU" />
+                <Money cents={uyu.billsDueNowCents} currency="UYU" />
               </strong>
-              <small>débito, efectivo y transferencias</small>
             </div>
             <div>
-              <span className="stat-dot mint" />
-              <p>Cuentas pagadas</p>
+              <span>Tarjeta a pagar</span>
               <strong>
-                <Money cents={uyu.billsPaidThisMonthCents} currency="UYU" />
+                <Money cents={uyu.cardDueNowCents + uyu.cardOverdueCents} currency="UYU" />
               </strong>
-              <small>ya salieron de la cuenta</small>
             </div>
-            <div>
-              <span className="stat-dot purple" />
-              <p>Comprometido</p>
-              <strong>
-                <Money cents={uyu.committedCents} currency="UYU" />
-              </strong>
-              <small>cuentas pendientes + tarjeta</small>
-            </div>
-          </div>
-
-          {hasMoney ? (
-            <div className="segmented-bar" aria-hidden="true">
-              <span className="spent" style={{ width: `${committedPct}%` }} />
-              <span className="committed" style={{ width: `${availablePct}%`, background: '#a8cbbc' }} />
-            </div>
-          ) : (
-            <div className="segmented-bar" style={{ background: 'rgba(255,255,255,.12)' }} aria-hidden="true" />
-          )}
-          <div className="bar-legend">
-            <span>
-              <i className="committed" style={{ background: '#b7a8d7' }} />
-              Comprometido
-            </span>
-            <span>
-              <i className="available" />
-              Disponible (incluye lo que no está comprometido)
-            </span>
           </div>
 
           {hasUsd ? (
@@ -148,9 +113,15 @@ export default async function HomePage() {
                 </strong>
               </div>
               <div>
-                <span>Comprometido</span>
+                <span>Cuentas fijas</span>
                 <strong>
-                  <Money cents={usd.committedCents} currency="USD" />
+                  <Money cents={usd.billsDueNowCents} currency="USD" />
+                </strong>
+              </div>
+              <div>
+                <span>Tarjeta a pagar</span>
+                <strong>
+                  <Money cents={usd.cardDueNowCents + usd.cardOverdueCents} currency="USD" />
                 </strong>
               </div>
               <Link href="/proyeccion?moneda=USD" className="link-button" style={{ color: 'rgba(255,255,255,.8)' }}>

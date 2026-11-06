@@ -5,11 +5,18 @@ import { ActionForm } from '@/components/action-form'
 import { createExpense, updateExpense } from '@/app/actions/expenses'
 import { createAccount, createAdjustment, createIncome, updateAccount, updateIncome } from '@/app/actions/accounts'
 import { CURRENCIES, type CurrencyCode } from '@/lib/money'
+import { CategoryDot } from '@/components/ui'
 import type { ActionState } from '@/lib/action-state'
 
 export type AccountOption = { id: string; name: string; currency: CurrencyCode; kind: string; isDefault: boolean }
 export type CardOption = { id: string; name: string; closingDay: number; dueDay: number }
-export type CategoryOption = { id: string; name: string; isActive: boolean }
+export type CategoryOption = {
+  id: string
+  name: string
+  isActive: boolean
+  icon: string | null
+  color: string | null
+}
 export type MerchantRule = { pattern: string; categoryId: string }
 
 export type ExpenseDefaults = {
@@ -78,6 +85,7 @@ export function ExpenseForm({
   // Una tarjeta puede tener consumos en pesos y en dólares (resumen dual).
   const cardsForCurrency = cards
   const activeCategories = categories.filter((category) => category.isActive || category.id === defaults?.categoryId)
+  const selectedCategory = categories.find((category) => category.id === categoryId)
 
   const suggested = useMemo(() => {
     const normalized = normalize(merchant)
@@ -168,19 +176,22 @@ export function ExpenseForm({
 
       <label className="field">
         <span>Categoría</span>
-        <select
-          className="select"
-          name="categoryId"
-          value={categoryId}
-          onChange={(event) => setCategoryId(event.target.value)}
-        >
-          <option value="">Sin categorizar</option>
-          {activeCategories.map((category) => (
-            <option key={category.id} value={category.id}>
-              {category.name}
-            </option>
-          ))}
-        </select>
+        <div className="category-with-icon">
+          <select
+            className="select"
+            name="categoryId"
+            value={categoryId}
+            onChange={(event) => setCategoryId(event.target.value)}
+          >
+            <option value="">Sin categorizar</option>
+            {activeCategories.map((category) => (
+              <option key={category.id} value={category.id}>
+                {category.name}
+              </option>
+            ))}
+          </select>
+          <CategoryDot icon={selectedCategory?.icon} color={selectedCategory?.color} size={34} />
+        </div>
       </label>
 
       <fieldset className="field" style={{ border: 0, padding: 0, margin: '0 0 12px' }}>

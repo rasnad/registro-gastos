@@ -89,11 +89,22 @@ export function SectionHead({
   )
 }
 
-export function CategoryDot({ icon, color }: { icon?: string | null; color?: string | null }) {
+export function CategoryDot({
+  icon,
+  color,
+  size = 36,
+}: {
+  icon?: string | null
+  color?: string | null
+  size?: number
+}) {
   const iconName = (icon ?? 'dots') as IconName
   return (
-    <span className={`category-icon ${color ?? 'gray'}`}>
-      <Icon name={iconName} size={16} />
+    <span
+      className={`category-icon ${color ?? 'gray'}`}
+      style={{ width: size, height: size, borderRadius: Math.round(size * 0.3), flex: 'none' }}
+    >
+      <Icon name={iconName} size={Math.round(size * 0.45)} />
     </span>
   )
 }

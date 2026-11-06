@@ -288,7 +288,7 @@ export type FormOptions = {
   today: string
   accounts: Array<{ id: string; name: string; currency: 'UYU' | 'USD'; kind: string; isDefault: boolean }>
   cards: Array<{ id: string; name: string; closingDay: number; dueDay: number }>
-  categories: Array<{ id: string; name: string; isActive: boolean }>
+  categories: Array<{ id: string; name: string; isActive: boolean; icon: string | null; color: string | null }>
   rules: Array<{ pattern: string; categoryId: string }>
 }
 
@@ -319,6 +319,8 @@ export async function loadFormOptions(userId: string): Promise<FormOptions> {
       id: category.id,
       name: category.name,
       isActive: category.isActive,
+      icon: category.icon,
+      color: category.color,
     })),
     rules: rules.map((rule) => ({ pattern: rule.pattern, categoryId: rule.categoryId })),
   }

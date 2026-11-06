@@ -10,11 +10,16 @@ import {
 } from '@/app/actions/imports'
 import { fromCents, parseAmountInput } from '@/lib/money'
 import { Icon } from '@/components/icons'
-import { Badge, Money } from '@/components/ui'
+import { Badge, CategoryDot, Money } from '@/components/ui'
 import { suggestCategoryName } from '@/lib/categories-rules'
 
 type CardOption = { id: string; name: string; closingDay: number; dueDay: number }
-type CategoryOption = { id: string; name: string }
+type CategoryOption = {
+  id: string
+  name: string
+  icon: string | null
+  color: string | null
+}
 
 export function StatementWizard({
   cards,
@@ -518,19 +523,26 @@ export function StatementWizard({
                       aria-label="Cuotas"
                       title="Cantidad de cuotas"
                     />
-                    <select
-                      className="select"
-                      value={row.categoryId ?? ''}
-                      onChange={(event) => updateRow(index, { categoryId: event.target.value || null })}
-                      aria-label="Categoría"
-                    >
-                      <option value="">Sin categorizar</option>
-                      {categories.map((category) => (
-                        <option key={category.id} value={category.id}>
-                          {category.name}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="category-with-icon">
+                      <select
+                        className="select"
+                        value={row.categoryId ?? ''}
+                        onChange={(event) => updateRow(index, { categoryId: event.target.value || null })}
+                        aria-label="Categoría"
+                      >
+                        <option value="">Sin categorizar</option>
+                        {categories.map((category) => (
+                          <option key={category.id} value={category.id}>
+                            {category.name}
+                          </option>
+                        ))}
+                      </select>
+                      <CategoryDot
+                        icon={categories.find((category) => category.id === row.categoryId)?.icon}
+                        color={categories.find((category) => category.id === row.categoryId)?.color}
+                        size={30}
+                      />
+                    </div>
                     <button
                       type="button"
                       className="icon-button"
