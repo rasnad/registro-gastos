@@ -4,6 +4,7 @@ import { toCents } from '@/lib/money'
 import { toISODate, todayISO } from '@/lib/period'
 import {
   buildOverview,
+  statementTotalsFromImports,
   accountBalances,
   type AccountSnapshot,
   type AdjustmentSnapshot,
@@ -46,6 +47,7 @@ export async function loadFinanceData(
   const today = options.today ?? todayISO()
 
   const [
+    statementRows,
     accountRows,
     cardRows,
     incomeRows,
@@ -53,6 +55,7 @@ export async function loadFinanceData(
     expenseRows,
     installmentRows,
     paymentRows,
+    independentPaymentRows,
     billRows,
     occurrenceRows,
     goalRows,
@@ -60,6 +63,7 @@ export async function loadFinanceData(
     reviewExpenses,
     reviewMessages,
   ] = await Promise.all([
+    prisma.statementImport.findMany({where:{userId,status:'IMPORTED'},orderBy:[{createdAt:'desc'},{id:'desc'}]}),
     prisma.account.findMany({ where: { userId }, orderBy: { createdAt: 'asc' } }),
     prisma.creditCard.findMany({ where: { userId }, orderBy: { createdAt: 'asc' } }),
     prisma.income.findMany({ where: { userId }, orderBy: { startDate: 'desc' } }),
@@ -71,6 +75,7 @@ export async function loadFinanceData(
     }),
     prisma.cardInstallment.findMany({ where: { expense: { userId } } }),
     prisma.cardPayment.findMany({ where: { userId } }),
+    prisma.obligationPayment.findMany({ where: { userId } }),
     prisma.recurringBill.findMany({ where: { userId }, orderBy: { name: 'asc' } }),
     prisma.billOccurrence.findMany({ where: { userId } }),
     prisma.savingsGoal.findMany({ where: { userId }, orderBy: [{ priority: 'asc' }, { createdAt: 'asc' }] }),
@@ -221,6 +226,7 @@ export async function loadFinanceData(
 
   const input: EngineInput = {
     today,
+    statementTotals:statementTotalsFromImports(statementRows),
     accounts,
     cards,
     incomes,
@@ -228,6 +234,12 @@ export async function loadFinanceData(
     expenses,
     installments,
     cardPayments,
+    independentPayments: independentPaymentRows.map((payment) => ({
+      id: payment.id, obligationId: payment.obligationId, obligationKind: payment.obligationKind as 'CARD' | 'BILL', period: payment.period, currency: payment.currency, amountCents: toCents(payment.amount),
+      paidAt: toISODate(payment.paidAt), accountId: payment.accountId,
+      accountAmountCents: payment.accountAmount == null ? null : toCents(payment.accountAmount),
+      debitAccount: payment.debitAccount,
+    })),
     bills,
     billOccurrences,
     goals,

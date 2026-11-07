@@ -85,20 +85,42 @@ export async function registerCardPayment(_prev: ActionState, formData: FormData
   return { ok: true }
 }
 
-export async function deleteCardPayment(_prev: ActionState, formData: FormData): Promise<ActionState> {
+/** Edita un pago histórico sin modificar el calendario de cuotas. */
+export async function editLegacyCardPayment(_prev: ActionState, form: FormData): Promise<ActionState> {
   const user = await requireUser()
-  const id = str(formData, 'id')
+  const id = str(form, 'id')
   const payment = await prisma.cardPayment.findFirst({ where: { id, userId: user.id } })
   if (!payment) return { error: 'El pago no existe.' }
+  const amount = cents(form, 'amount')
+  const paidAt = isoDate(form, 'paidAt')
+  const accountId = optStr(form, 'accountId')
+  if (amount === null || !Number.isSafeInteger(amount) || amount <= 0 || amount > 99999999999999 || !paidAt || !Number.isFinite(dateValue(paidAt).getTime()) || dateValue(paidAt).toISOString().slice(0, 10) !== paidAt) return { error: 'Revisá el importe y la fecha.' }
+  let accountAmount: string | null = null
+  let exchangeRate: number | null = null
+  if (accountId) {
+    const account = await prisma.account.findFirst({ where: { id: accountId, userId: user.id } })
+    if (!account) return { error: 'La cuenta no existe.' }
+    if (account.currency === payment.currency) accountAmount = fromCents(amount)
+    else if (account.currency === 'UYU' && payment.currency === 'USD') {
+      exchangeRate = user.usdRateCents
+      accountAmount = fromCents(convertUsdToUyu(amount, exchangeRate))
+    } else return { error: 'La moneda de la cuenta no permite este pago.' }
+    if (payment.accountId === accountId && Number(payment.amount) * 100 === amount) {
+      accountAmount = payment.accountAmount?.toString() ?? accountAmount
+      exchangeRate = payment.exchangeRate
+    }
+  }
+  const result = await prisma.cardPayment.updateMany({ where: { id, userId: user.id }, data: { amount: fromCents(amount), paidAt: dateValue(paidAt), accountId, accountAmount, exchangeRate, note: optStr(form, 'note') } })
+  if (!result.count) return { error: 'El pago no existe.' }
+  revalidateFinance()
+  return { ok: true }
+}
 
-  await prisma.$transaction(async (tx) => {
-    await tx.cardPayment.delete({ where: { id: payment.id } })
-    await tx.cardInstallment.updateMany({
-      where: { cardId: payment.creditCardId, period: payment.period, currency: payment.currency, isPaid: true },
-      data: { isPaid: false, paidAt: null },
-    })
-  })
-
+/** La eliminación revierte el débito al recalcular; no altera cuotas históricas. */
+export async function deleteCardPayment(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const user = await requireUser()
+  const result = await prisma.cardPayment.deleteMany({ where: { id: str(formData, 'id'), userId: user.id } })
+  if (!result.count) return { error: 'El pago no existe.' }
   revalidateFinance()
   return { ok: true }
 }

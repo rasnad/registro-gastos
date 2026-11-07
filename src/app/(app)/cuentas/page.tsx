@@ -1,3 +1,5 @@
+import { PaymentHistory } from '@/components/finance/payment-history'
+import { billObligationBalance, cardObligationBalance, applyShare, obligationPayments } from '@/lib/finance/engine'
 import type { Metadata } from 'next'
 import { requireUser } from '@/lib/auth'
 import { prisma } from '@/lib/db'
@@ -17,7 +19,7 @@ import { Money, Badge, SectionHead, EmptyState } from '@/components/ui'
 import { Icon } from '@/components/icons'
 import { Dialog } from '@/components/dialog'
 import { BillActualForm, BillForm, MiniForm, PayBillForm } from '@/components/forms/other-forms'
-import { deleteBill, unpayBillOccurrence } from '@/app/actions/bills'
+import { deleteBill } from '@/app/actions/bills'
 import { MonthKpis, type MonthKpi } from '@/components/finance/month-kpis'
 
 export const metadata: Metadata = { title: 'Cuentas fijas' }
@@ -25,7 +27,7 @@ export const dynamic = 'force-dynamic'
 
 export default async function CuentasPage() {
   const user = await requireUser()
-  const [data, options, billRows] = await Promise.all([
+  const [data, options, billRows, ledger] = await Promise.all([
     loadFinanceData(user.id, { months: 6 }),
     loadFormOptions(user.id),
     prisma.recurringBill.findMany({
@@ -38,6 +40,7 @@ export default async function CuentasPage() {
         occurrences: { orderBy: { period: 'desc' }, take: 24 },
       },
     }),
+    prisma.obligationPayment.findMany({ where: { userId: user.id, obligationKind: 'BILL' }, orderBy: [{ paidAt: 'desc' }, { createdAt: 'desc' }] }),
   ])
   const today = todayISO()
   const current = data.overview.currentMonth
@@ -54,6 +57,7 @@ export default async function CuentasPage() {
       ...bankBills.map((item) => ({
         name: item.bill.name,
         amountCents: item.expectedCents,
+        pendingCents: applyShare(billObligationBalance(data.input,item.bill,month,item.occurrence ?? undefined).remainingCents,item.bill.sharePercent),
         currency: item.bill.currency as CurrencyCode,
         frequency: item.bill.frequency,
         sharePercent: item.bill.sharePercent,
@@ -67,14 +71,10 @@ export default async function CuentasPage() {
         currency: item.bill.currency as CurrencyCode,
         frequency: item.bill.frequency,
         sharePercent: item.bill.sharePercent,
+        pendingCents: item.expectedCents,
         chargedToCard: true,
         estimated: !item.exact,
-        paid: data.input.cardPayments.some(
-          (payment) =>
-            payment.creditCardId === item.bill.creditCardId &&
-            payment.period === month &&
-            payment.currency === item.bill.currency,
-        ),
+        paid: cardObligationBalance(data.input,item.bill.creditCardId!,month,item.bill.currency).status === 'PAID',
       })),
     ].sort((first, second) => {
       // Primero las pendientes, después las pagadas.
@@ -89,10 +89,10 @@ export default async function CuentasPage() {
       period: month,
       totals: {
         UYU: sumCents(
-          items.filter((item) => !item.paid && item.currency === 'UYU').map((item) => item.amountCents),
+          items.filter((item) => !item.paid && item.currency === 'UYU').map((item) => item.pendingCents),
         ),
         USD: sumCents(
-          items.filter((item) => !item.paid && item.currency === 'USD').map((item) => item.amountCents),
+          items.filter((item) => !item.paid && item.currency === 'USD').map((item) => item.pendingCents),
         ),
       },
       items,
@@ -145,7 +145,9 @@ export default async function CuentasPage() {
             const expected = snapshot ? billExpectedCents(snapshot, occurrence) : 0
             const totalCents = snapshot ? billTotalCents(snapshot, occurrence) : 0
             const range = snapshot ? billRangeCents(snapshot, occurrence) : { min: 0, max: 0, exact: true }
-            const paid = occurrence?.status === 'PAID'
+            const payments = ledger.filter(item => item.obligationId === bill.id)
+            const balance = billObligationBalance(data.input,snapshot,current)
+            const paid = balance.status === 'PAID'
             const chargedToCard = bill.paymentSource === 'CREDIT_CARD'
             const chargePeriod = chargedToCard
               ? billChargePeriod(snapshot, data.input.cards, dueDate)
@@ -204,6 +206,8 @@ export default async function CuentasPage() {
                     </strong>
                     {paid ? (
                       <span className="paid">Pagada</span>
+                    ) : balance.status === 'PARTIAL' ? (
+                      <span>Pago parcial</span>
                     ) : bill.amountType === 'RANGE' ? (
                       <span className="estimated">
                         {fromCents(range.min)}–{fromCents(range.max)}
@@ -219,14 +223,6 @@ export default async function CuentasPage() {
                     <span className="badge info">
                       Se paga con el resumen{chargePeriod ? ` de ${monthLabel(chargePeriod)}` : ''}
                     </span>
-                  ) : paid ? (
-                    <MiniForm
-                      action={unpayBillOccurrence}
-                      hidden={{ billId: bill.id, period: current }}
-                      label="Deshacer pago"
-                      className="ghost-button small-button"
-                      confirmMessage="¿Marcar esta cuenta como pendiente otra vez?"
-                    />
                   ) : (
                     <Dialog
                       label="Registrar pago"
@@ -244,7 +240,8 @@ export default async function CuentasPage() {
                         }}
                         accounts={options.accounts}
                         period={current}
-                        defaultAmount={fromCents(totalCents)}
+                        defaultAmount={fromCents(balance.remainingCents)}
+                        usdRateCents={user.usdRateCents}
                         chargedToCard={chargedToCard}
                       />
                     </Dialog>
@@ -301,16 +298,12 @@ export default async function CuentasPage() {
                     confirmMessage="¿Eliminar esta cuenta y su historial de pagos?"
                   />
                   <span className="spacer" />
-                  {bill.occurrences.length > 0 ? (
-                    <span className="hint">
-                      Último pago: {bill.occurrences[0].period} ·{' '}
-                      <Money
-                        cents={Math.round(Number(bill.occurrences[0].amountActual ?? 0) * 100)}
-                        currency={bill.currency}
-                      />
-                    </span>
-                  ) : null}
+
                 </div>
+                {!chargedToCard ? <div className="stack-sm" style={{ marginTop: 12 }}>
+                  <p className="hint">Pagado: <Money cents={balance.paidCents} currency={bill.currency} /> · Pendiente: <Money cents={balance.remainingCents} currency={bill.currency} /></p>
+                  <PaymentHistory legacyPayments={obligationPayments(data.input).filter(p => p.id.startsWith('legacy-bill:') && p.obligationId === bill.id)} payments={payments} accounts={options.accounts} name={bill.name} usdRateCents={user.usdRateCents} />
+                </div> : null}
               </div>
             )
           })}

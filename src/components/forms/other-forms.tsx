@@ -2,10 +2,12 @@
 
 import { useActionState, useState } from 'react'
 import { ActionForm } from '@/components/action-form'
-import { registerCardPayment } from '@/app/actions/cards'
+import { editLegacyCardPayment } from '@/app/actions/cards'
+import { saveObligationPayment } from '@/app/actions/obligation-payments'
+import { todayISO } from '@/lib/period'
 import { updateInstallment } from '@/app/actions/expenses'
 import { createCreditCard, updateCreditCard } from '@/app/actions/accounts'
-import { createBill, payBillOccurrence, setBillActualAmount, updateBill } from '@/app/actions/bills'
+import { createBill, setBillActualAmount, updateBill } from '@/app/actions/bills'
 import { createGoal, addContribution, updateGoal } from '@/app/actions/goals'
 import { createCategory, updateCategory } from '@/app/actions/categories'
 import { CURRENCIES, convertUsdToUyu, formatRate, parseAmountInput, type CurrencyCode } from '@/lib/money'
@@ -113,6 +115,9 @@ export function CardPaymentForm({
   defaultAmount,
   defaultCurrency,
   usdRateCents,
+  obligationKind = 'CARD',
+  payment,
+  legacy = false,
 }: {
   cards: CardOption[]
   accounts: AccountOption[]
@@ -121,6 +126,9 @@ export function CardPaymentForm({
   defaultAmount?: string
   defaultCurrency?: CurrencyCode
   usdRateCents: number
+  obligationKind?: 'CARD' | 'BILL'
+  legacy?: boolean
+  payment?: { id: string; paidAt: string; accountId: string | null; debitAccount: boolean; note: string | null }
 }) {
   const [cardId, setCardId] = useState(defaultCardId ?? cards[0]?.id ?? '')
   const [payCurrency, setPayCurrency] = useState<CurrencyCode>(defaultCurrency ?? 'UYU')
@@ -130,7 +138,7 @@ export function CardPaymentForm({
       (account) => account.isDefault && (account.currency === cur || (cur === 'USD' && account.currency === 'UYU')),
     )?.id ?? ''
   const [accountId, setAccountId] = useState(
-    defaultPayableAccount(defaultCurrency ?? 'UYU'),
+    payment ? payment.accountId ?? '' : defaultPayableAccount(defaultCurrency ?? 'UYU'),
   )
   function changePayCurrency(next: CurrencyCode) {
     setPayCurrency(next)
@@ -148,11 +156,14 @@ export function CardPaymentForm({
     (account) => account.currency === payCurrency || (payCurrency === 'USD' && account.currency === 'UYU'),
   )
   return (
-    <ActionForm action={registerCardPayment} submitLabel="Registrar pago">
+    <ActionForm action={legacy ? editLegacyCardPayment : saveObligationPayment} submitLabel={payment ? 'Guardar cambios' : 'Registrar pago'}>
+      <input type="hidden" name="obligationKind" value={obligationKind} />
+      {payment ? <input type="hidden" name="obligationId" value={cardId} /> : null}
+      {payment ? <input type="hidden" name="id" value={payment.id} /> : null}
       <div className="field-grid">
         <label className="field">
-          <span>Tarjeta</span>
-          <select className="select" name="creditCardId" value={cardId} onChange={(event) => setCardId(event.target.value)} required>
+          <span>{obligationKind === 'CARD' ? 'Tarjeta' : 'Cuenta fija'}</span>
+          <select className="select" name="obligationId" value={cardId} disabled={Boolean(payment)} onChange={(event) => setCardId(event.target.value)} required>
             {cards.map((item) => (
               <option key={item.id} value={item.id}>
                 {item.name}
@@ -162,7 +173,7 @@ export function CardPaymentForm({
         </label>
         <label className="field">
           <span>Resumen (AAAA-MM)</span>
-          <input className="input" name="period" required defaultValue={defaultPeriod} placeholder="2025-06" pattern="\d{4}-\d{2}" />
+          <input className="input" name="period" readOnly={Boolean(payment)} required defaultValue={defaultPeriod} placeholder="2025-06" pattern="\d{4}-\d{2}" />
         </label>
       </div>
       <div className="field-grid">
@@ -183,6 +194,7 @@ export function CardPaymentForm({
           <select
             className="select"
             name="currency"
+            disabled={Boolean(payment)}
             value={payCurrency}
             onChange={(event) => changePayCurrency(event.target.value as CurrencyCode)}
           >
@@ -191,9 +203,10 @@ export function CardPaymentForm({
           </select>
         </label>
       </div>
+      {payment ? <input type="hidden" name="currency" value={payCurrency} /> : null}
       <label className="field">
         <span>Fecha de pago</span>
-        <input className="input" type="date" name="paidAt" required defaultValue={new Date().toISOString().slice(0, 10)} />
+        <input className="input" type="date" name="paidAt" required defaultValue={payment?.paidAt ?? todayISO()} />
       </label>
       <label className="field">
         <span>Cuenta desde la que pagaste</span>
@@ -211,7 +224,7 @@ export function CardPaymentForm({
             </option>
           ))}
         </select>
-        <span className="hint">El pago descuenta esa cuenta una sola vez y salda las cuotas del período.</span>
+        <span className="hint">Podés registrar el saldo completo o un pago parcial. El calendario de cuotas no cambia.</span>
         {payCurrency === 'USD' && amountCents > 0 ? (
           <span className="hint">
             Equivalente en pesos: {formatRate(usdRateCents)} por dólar →{' '}
@@ -227,8 +240,11 @@ export function CardPaymentForm({
       </label>
       <label className="field">
         <span>Nota (opcional)</span>
-        <input className="input" name="note" placeholder="Ej. incluye sellos" />
+        <input className="input" name="note" defaultValue={payment?.note ?? ''} placeholder="Ej. incluye sellos" />
       </label>
+      {!legacy ? <label className="field"><span>Descontar de la cuenta elegida</span>
+        <select className="select" name="debitAccount" defaultValue={String(payment?.debitAccount ?? true)}><option value="true">Sí</option><option value="false">No, ya está reflejado en el saldo</option></select>
+      </label> : null}
     </ActionForm>
   )
 }
@@ -512,45 +528,21 @@ export function PayBillForm({
   period,
   defaultAmount,
   chargedToCard,
+  usdRateCents = 4100,
 }: {
   bill: { id: string; name: string; paymentSource: 'ACCOUNT' | 'CREDIT_CARD'; currency: CurrencyCode }
   accounts: AccountOption[]
   period: string
   defaultAmount: string
   chargedToCard: boolean
+  usdRateCents?: number
 }) {
-  return (
-    <ActionForm action={payBillOccurrence} submitLabel="Marcar como pagada">
-      <input type="hidden" name="billId" value={bill.id} />
-      <input type="hidden" name="period" value={period} />
-      <div className="field-grid">
-        <label className="field">
-          <span>Importe real</span>
-          <input className="input" name="amountActual" inputMode="decimal" required defaultValue={defaultAmount} />
-        </label>
-        <label className="field">
-          <span>Fecha de pago</span>
-          <input className="input" type="date" name="paidAt" required defaultValue={new Date().toISOString().slice(0, 10)} />
-        </label>
-      </div>
-      {chargedToCard ? (
-        <p className="hint">
-          Esta cuenta se paga con tarjeta: queda registrada como pagada y su cargo se imputa al resumen de la tarjeta.
-        </p>
-      ) : (
-        <label className="field">
-          <span>Cuenta desde la que pagaste</span>
-          <select className="select" name="accountId" required defaultValue="">
-            <option value="" disabled>Elegí una cuenta</option>
-            {accounts.filter((account) => account.currency === bill.currency).map((account) => (
-              <option key={account.id} value={account.id}>{account.name}</option>
-            ))}
-          </select>
-        </label>
-      )}
-    </ActionForm>
-  )
+  if (chargedToCard) return <p className="hint">Se paga desde el resumen de la tarjeta.</p>
+  return <CardPaymentForm cards={[{ id: bill.id, name: bill.name, closingDay: 1, dueDay: 1 }]} accounts={accounts}
+    defaultCardId={bill.id} defaultPeriod={period} defaultCurrency={bill.currency}
+    defaultAmount={defaultAmount} usdRateCents={usdRateCents} obligationKind="BILL" />
 }
+
 
 export function BillActualForm({
   billId,

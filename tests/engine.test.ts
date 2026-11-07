@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   accountBalanceAt,
+  upcomingPayments,
+  unassignedIncomeByCurrency,
+  dashboardCommitments,
   billExpectedCents,
   billsInMonth,
   buildOverview,
@@ -51,6 +54,7 @@ function baseInput(): EngineInput {
     expenses: [],
     installments: [],
     cardPayments: [],
+    independentPayments: [],
     bills: [],
     billOccurrences: [],
     goals: [],
@@ -567,5 +571,116 @@ describe('gastos compartidos: porcentaje de la cuenta', () => {
 
     const flow = projectMonths(input, 'UYU', 3).find((item) => item.period === '2025-06')!
     expect(flow.billsCents).toBe(240_000)
+  })
+})
+
+
+describe('pagos independientes en saldos bancarios', () => {
+  it('refleja altas, múltiples pagos, edición y eliminación sin duplicar el mismo registro', () => {
+    const input = baseInput()
+    input.incomes = []
+    const account = input.accounts[0]
+    const payment = { id: 'p1', obligationId: 'card-1', amountCents: 25000, accountAmountCents: 25000, accountId: account.id, paidAt: '2025-06-10', debitAccount: true }
+    input.independentPayments = [payment]
+    expect(accountBalanceAt(account, input)).toBe(975000)
+    input.independentPayments.push({...payment, id: 'p2', amountCents: 15000, accountAmountCents: 15000}, payment)
+    expect(accountBalanceAt(account, input)).toBe(960000)
+    input.independentPayments = [{...payment, amountCents: 10000, accountAmountCents: 10000}, input.independentPayments[1]]
+    expect(accountBalanceAt(account, input)).toBe(975000)
+    input.independentPayments = [input.independentPayments[1]]
+    expect(accountBalanceAt(account, input)).toBe(985000)
+  })
+  it('usa el débito guardado en la moneda de cada cuenta y conserva ajustes', () => {
+    const input = baseInput()
+    input.incomes = []
+    const uyu = input.accounts[0]
+    const usd = {...uyu, id:'usd', currency:'USD' as const, openingCents: 100000}
+    input.accounts.push(usd)
+    input.adjustments.push({id:'a',accountId:uyu.id,date:'2025-06-01',deltaCents:5000,currency:'UYU',reason:'Conciliación'})
+    input.independentPayments = [
+      {id:'p1', obligationId:'card-1', amountCents:1000, accountAmountCents:41000, accountId:uyu.id, paidAt:'2025-06-10', debitAccount:true},
+      {id:'p2', obligationId:'bill', amountCents:2000, accountAmountCents:2000, accountId:usd.id, paidAt:'2025-06-10', debitAccount:true},
+      {id:'p3', obligationId:'bill', amountCents:500, accountAmountCents:500, accountId:usd.id, paidAt:'2025-06-10', debitAccount:false},
+      {id:'p4', obligationId:'bill', amountCents:500, accountAmountCents:500, accountId:usd.id, paidAt:'2025-06-21', debitAccount:true},
+    ]
+    expect(accountBalanceAt(uyu, input)).toBe(964000)
+    expect(accountBalanceAt(usd, input)).toBe(98000)
+    expect(accountBalanceAt(usd, input, '2025-06-21')).toBe(97500)
+  })
+})
+
+
+describe('disponible del tablero con pagos reales', () => {
+  it('agrupa tarjetas y cuentas, convierte dólares y separa mes, moneda y tipo', () => {
+    const input = baseInput(); input.incomes = []
+    input.cards.push({...input.cards[0], id:'card-2'})
+    const bill = {id:'bill', name:'Luz', categoryId:null, currency:'UYU' as const, amountType:'FIXED' as const, amountFixedCents:10000, amountMinCents:null, amountMaxCents:null, sharePercent:100, frequency:'MONTHLY', dueDay:10, paymentSource:'ACCOUNT' as const, accountId:null, creditCardId:null, startDate:'2025-01-01', endDate:null, isActive:true}
+    input.bills.push(bill, {...bill, id:'bill-2', amountFixedCents:5000})
+    const statements = [{cardId:'card-1', period:'2025-06', currency:'UYU' as const, totalCents:20000}, {cardId:'card-2', period:'2025-06', currency:'USD' as const, totalCents:1000}, {cardId:'card-1', period:'2025-07', currency:'UYU' as const, totalCents:90000}]
+    const first = dashboardCommitments(input, '2025-06', 4100, statements)
+    expect(first.cards.totalCents).toBe(61000)
+    expect(first.bills.totalCents).toBe(15000)
+    expect(first.availableAfterCommitmentsCents).toBe(924000)
+    const pay = {id:'p1', obligationId:'card-1', obligationKind:'CARD' as const, period:'2025-06', currency:'UYU' as const, amountCents:5000, accountAmountCents:5000, accountId:'acc-uyu', paidAt:'2025-06-10', debitAccount:true}
+    input.independentPayments = [pay, pay, {...pay,id:'p2', obligationId:'bill', obligationKind:'BILL',amountCents:10000,accountAmountCents:10000}, {...pay,id:'p3',period:'2025-07',accountId:null,accountAmountCents:null}]
+    const partial = dashboardCommitments(input, '2025-06', 4100, statements)
+    expect(partial.cards.status).toBe('PARTIAL')
+    expect(partial.bills.status).toBe('PARTIAL')
+    expect(partial.availableAfterCommitmentsCents).toBe(924000)
+    expect(dashboardCommitments(input,'2025-07',4100,statements).cards.remainingCents).toBe(85000)
+    input.independentPayments = [ {...pay,amountCents:20000,accountAmountCents:20000}, {...pay,id:'usd',obligationId:'card-2',currency:'USD',amountCents:1000,accountAmountCents:41000}, {...pay,id:'b1',obligationId:'bill',obligationKind:'BILL',amountCents:10000,accountAmountCents:10000}, {...pay,id:'b2',obligationId:'bill-2',obligationKind:'BILL',amountCents:5000,accountAmountCents:5000} ]
+    const complete = dashboardCommitments(input,'2025-06',4100,statements)
+    expect(complete.cards.status).toBe('PAID'); expect(complete.bills.status).toBe('PAID')
+    expect(complete.availableAfterCommitmentsCents).toBe(complete.currentBalanceUyuCents)
+  })
+  it('reconoce pagos históricos y no suma resumen importado y cuotas dos veces', () => {
+    const input = baseInput(); input.incomes = []
+    addCardPurchase(input, {id:'purchase',date:'2025-06-01',amountCents:20000,count:1})
+    input.cardPayments.push({id:'old',creditCardId:'card-1',period:'2025-06',currency:'UYU',amountCents:10000,accountAmountCents:10000,paidAt:'2025-06-10',accountId:'acc-uyu'})
+    const result = dashboardCommitments(input,'2025-06',4100,[{cardId:'card-1',period:'2025-06',currency:'UYU',totalCents:15000}])
+    expect(result.cards.totalCents).toBe(15000)
+    expect(result.cards.remainingCents).toBe(5000)
+    expect(result.availableAfterCommitmentsCents).toBe(985000)
+    expect(result.warnings).toEqual([])
+  })
+})
+
+
+describe('ingresos sin cuenta y próximos pagos', () => {
+  it('muestra el ingreso recibido en su moneda sin sumarlo a una cuenta de otra moneda', () => {
+    const input = baseInput()
+    input.incomes = [{...input.incomes[0], id:'airbnb',currency:'USD',amountCents:15100,recurrence:null,startDate:'2025-06-20',accountId:null}]
+    expect(unassignedIncomeByCurrency(input)).toEqual({UYU:0,USD:15100})
+    expect(accountBalanceAt(input.accounts[0],input)).toBe(1000000)
+    expect(unassignedIncomeByCurrency({...input,today:'2025-06-19'}).USD).toBe(0)
+  })
+  it('omite resúmenes de meses anteriores y ordena obligaciones vigentes por vencimiento', () => {
+    const input = baseInput()
+    addCardPurchase(input,{id:'old',date:'2025-02-01',amountCents:21900,count:1})
+    addCardPurchase(input,{id:'current',date:'2025-06-01',amountCents:30000,count:1})
+    input.bills.push({id:'bill',name:'Luz',categoryId:null,currency:'UYU',amountType:'FIXED',amountFixedCents:10000,amountMinCents:null,amountMaxCents:null,sharePercent:100,frequency:'MONTHLY',dueDay:10,paymentSource:'ACCOUNT',accountId:null,creditCardId:null,startDate:'2025-06-01',endDate:null,isActive:true})
+    const items=upcomingPayments(input)
+    expect(items.some(item=>item.subtitle.includes('2025-02'))).toBe(false)
+    expect(items[0]).toMatchObject({kind:'BILL',dueDate:'2025-06-10'})
+    expect(items[1]).toMatchObject({kind:'CARD',dueDate:'2025-06-24'})
+  })
+})
+
+
+describe('proyección de movimientos de hoy', () => {
+  it('incluye el ingreso de hoy una sola vez en el saldo proyectado', () => {
+    const input=baseInput(); input.incomes=[{...input.incomes[0],id:'hoy',amountCents:620000,recurrence:null,startDate:input.today}]
+    const flow=projectMonths(input,'UYU',1)[0]
+    expect(flow.startCents).toBe(1620000)
+    expect(flow.incomeCents).toBe(0)
+    expect(flow.endCents).toBe(1620000)
+  })
+  it('incluye el gasto de hoy una sola vez en el saldo proyectado', () => {
+    const input=baseInput(); input.incomes=[]
+    input.expenses.push({id:'today',date:input.today,merchant:'Test',amountCents:10000,currency:'UYU',categoryId:null,source:'ACCOUNT',accountId:'acc-uyu',creditCardId:null,installments:1,origin:'MANUAL',status:'CONFIRMED',isEstimated:false})
+    const flow=projectMonths(input,'UYU',1)[0]
+    expect(flow.startCents).toBe(990000)
+    expect(flow.otherExpensesCents).toBe(0)
+    expect(flow.endCents).toBe(990000)
   })
 })

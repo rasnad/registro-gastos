@@ -1,7 +1,12 @@
 import Link from 'next/link'
 import type { Metadata } from 'next'
 import { requireUser } from '@/lib/auth'
-import { loadFinanceData } from '@/lib/finance/data'
+import { loadFinanceData, loadFormOptions } from '@/lib/finance/data'
+import { billObligationBalance, cardObligationBalance, dashboardCommitments, accountBalanceBreakdown, unassignedIncomeByCurrency } from '@/lib/finance/engine'
+import { fromCents } from '@/lib/money'
+import { Dialog } from '@/components/dialog'
+import { PayBillForm, CardPaymentForm } from '@/components/forms/other-forms'
+import type { ReactNode } from 'react'
 import { Money, Alert, SectionHead, Badge } from '@/components/ui'
 import { Icon } from '@/components/icons'
 import { dateLabel, monthLabel, todayISO } from '@/lib/period'
@@ -10,13 +15,17 @@ import { ProjectionChart, UpcomingList } from '@/components/finance/projection-c
 export const metadata: Metadata = { title: 'Inicio' }
 export const dynamic = 'force-dynamic'
 
-export default async function HomePage() {
+export default async function HomePage({ searchParams }: { searchParams: Promise<{ mes?: string }> }) {
   const user = await requireUser()
   const data = await loadFinanceData(user.id, { months: 6 })
+  const [options, params] = await Promise.all([loadFormOptions(user.id),searchParams])
+  const selected = params.mes && /^\d{4}-(0[1-9]|1[0-2])$/.test(params.mes) ? params.mes : data.overview.currentMonth
+  const dashboard = dashboardCommitments(data.input,selected,user.usdRateCents)
   const { overview } = data
   const uyu = overview.summaries.UYU
   const usd = overview.summaries.USD
   const today = todayISO()
+  const unassignedIncome = unassignedIncomeByCurrency(data.input)
 
   const hasUsd =
     data.input.accounts.some((account) => account.currency === 'USD') ||
@@ -40,6 +49,37 @@ export default async function HomePage() {
     data.input.expenses.length === 0 &&
     data.input.installments.length === 0
   const upcoming = overview.upcoming.slice(0, 5)
+  const paymentActions: Record<string, (content: ReactNode) => ReactNode> = {}
+  for (const item of upcoming) {
+    if (item.kind === 'BILL') {
+      const bill = data.input.bills.find((row) => item.id === `bill-${row.id}-${item.dueDate.slice(0, 7)}`)
+      if (!bill) continue
+      const period = item.dueDate.slice(0, 7)
+      const occurrence = data.input.billOccurrences.find((row) => row.billId === bill.id && row.period === period)
+      paymentActions[item.id] = (content) => (
+        <Dialog label={`Pagar ${bill.name}`} buttonClassName="upcoming-pay-button" title={`Pagar ${bill.name} · ${monthLabel(period)}`} description="Ingresá el importe real y elegí la cuenta desde la que pagaste." triggerContent={content}>
+          <PayBillForm bill={bill} accounts={options.accounts} period={period} defaultAmount={fromCents(billObligationBalance(data.input,bill,period,occurrence).remainingCents)} chargedToCard={false} usdRateCents={user.usdRateCents} />
+        </Dialog>
+      )
+    } else if (item.kind === 'CARD') {
+      const card = data.input.cards.find(c => item.id === `card-${c.id}-${item.dueDate.slice(0,7)}-${item.currency}`)
+      if (!card) continue
+      paymentActions[item.id] = content => <Dialog label={`Pagar ${card.name}`} buttonClassName="upcoming-pay-button" title={`Pagar resumen · ${monthLabel(item.dueDate.slice(0,7))}`} triggerContent={content}>
+        <CardPaymentForm cards={options.cards} accounts={options.accounts} defaultCardId={card.id} defaultPeriod={item.dueDate.slice(0,7)} defaultCurrency={item.currency} defaultAmount={fromCents(item.amountCents)} usdRateCents={user.usdRateCents} />
+      </Dialog>
+    } else if (item.kind === 'INSTALLMENT') {
+      const installment = data.input.installments.find((row) => item.id === `inst-${row.id}`)
+      if (!installment?.cardId || !options.cards.some((card) => card.id === installment.cardId)) continue
+      const cardId = installment.cardId
+      const period = installment.period
+      const amount = cardObligationBalance(data.input,cardId,period,item.currency).remainingCents
+      paymentActions[item.id] = (content) => (
+        <Dialog label={`Pagar ${item.title}`} buttonClassName="upcoming-pay-button" title={`Pagar resumen · ${monthLabel(period)}`} description="Este pago corresponde al resumen completo de la tarjeta en esta moneda y período." triggerContent={content}>
+          <CardPaymentForm cards={options.cards} accounts={options.accounts} defaultCardId={cardId} defaultPeriod={period} defaultCurrency={item.currency} defaultAmount={fromCents(amount)} usdRateCents={user.usdRateCents} />
+        </Dialog>
+      )
+    }
+  }
   const uyuFlows = overview.projections.UYU
   const endOfHorizon = uyuFlows[uyuFlows.length - 1]
   const tight = uyuFlows.filter((flow) => flow.endMinCents < 0)
@@ -81,64 +121,32 @@ export default async function HomePage() {
       <div className="page-grid home-top">
         <section className="balance-card" aria-label="Saldo disponible">
           <div className="balance-top">
-            <span className="soft-icon">
-              <Icon name="wallet" size={18} />
-            </span>
-            <span className="status-chip">
-              <i /> Saldos al {dateLabel(today)}
-            </span>
+            <span className="status-chip"><i /> Saldos al {dateLabel(today)}</span>
+            <form className="dashboard-month" action="/">
+              <label htmlFor="dashboard-month">Mes</label>
+              <input id="dashboard-month" name="mes" type="month" defaultValue={selected} required />
+              <button type="submit">Ver</button>
+            </form>
           </div>
-
           <div className="balance-copy">
-            <p>Disponibles después de cuentas</p>
-            <div className="balance-value">
-              <Money cents={uyu.afterCommitmentsCents} currency="UYU" />
-              <small>
-                saldo en cuentas: <Money cents={uyu.availableCents} currency="UYU" />
-              </small>
-            </div>
+            <p>Disponible después de compromisos{dashboard.warnings.length ? ' · estimado' : ''}</p>
+            <div className="balance-value"><Money cents={dashboard.availableAfterCommitmentsCents} currency="UYU" /></div>
+            <div className="balance-subline">Saldo actual <b><Money cents={dashboard.currentBalanceUyuCents} currency="UYU" /></b></div>
           </div>
-
-          <div className="hero-breakdown">
-            <div>
-              <span>Cuentas fijas</span>
-              <strong>
-                <Money cents={uyu.billsDueNowCents} currency="UYU" />
-              </strong>
-            </div>
-            <div>
-              <span>Tarjeta a pagar</span>
-              <strong>
-                <Money cents={uyu.cardDueNowCents + uyu.cardOverdueCents} currency="UYU" />
-              </strong>
-            </div>
-          </div>
-
-          {hasUsd ? (
-            <div className="hero-usd">
-              <div>
-                <span>Dólares disponibles</span>
-                <strong>
-                  <Money cents={usd.afterCommitmentsCents} currency="USD" />
-                </strong>
-              </div>
-              <div>
-                <span>Cuentas fijas</span>
-                <strong>
-                  <Money cents={usd.billsDueNowCents} currency="USD" />
-                </strong>
-              </div>
-              <div>
-                <span>Tarjeta a pagar</span>
-                <strong>
-                  <Money cents={usd.cardDueNowCents + usd.cardOverdueCents} currency="USD" />
-                </strong>
-              </div>
-              <Link href="/proyeccion?moneda=USD" className="link-button" style={{ color: 'rgba(255,255,255,.8)' }}>
-                Ver detalle
-              </Link>
+          {(usd.availableCents !== 0 || unassignedIncome.USD !== 0 || unassignedIncome.UYU !== 0) ? (
+            <div className="balance-extra">
+              {usd.availableCents !== 0 ? <div>Saldo en dólares <strong><Money cents={usd.availableCents} currency="USD" /></strong></div> : null}
+              {(['UYU','USD'] as const).filter(cur => unassignedIncome[cur] !== 0).map(cur => (
+                <div key={cur}>Ingresos recibidos sin cuenta <strong><Money cents={unassignedIncome[cur]} currency={cur} /></strong></div>
+              ))}
+              {(unassignedIncome.UYU !== 0 || unassignedIncome.USD !== 0) ? <small>Asignalos a una cuenta de la misma moneda para incluirlos en su saldo.</small> : null}
             </div>
           ) : null}
+          <div className="hero-breakdown dashboard-breakdown">
+            <div><div><span>Tarjeta · {monthLabel(selected)}</span><small>{dashboard.cards.status === 'PAID' ? 'Pagada' : dashboard.cards.status === 'PARTIAL' ? 'Pago parcial' : 'Pendiente'}</small></div><strong><Money cents={dashboard.cards.totalCents} currency="UYU" /></strong></div>
+            <div><div><span>Cuentas fijas</span><small>{dashboard.bills.status === 'PAID' ? 'Todas pagadas' : dashboard.bills.status === 'PARTIAL' ? 'Parcialmente pagadas' : 'Pendientes'}</small></div><strong><Money cents={dashboard.bills.totalCents} currency="UYU" /></strong></div>
+          </div>
+          {dashboard.warnings.filter(warning => warning !== 'Hay cuentas variables sin importe real; los compromisos son estimados.').length ? <p className="dashboard-warning" role="status">{dashboard.warnings.filter(warning => warning !== 'Hay cuentas variables sin importe real; los compromisos son estimados.').join(' ')}</p> : null}
         </section>
 
         <section className="panel">
@@ -151,11 +159,11 @@ export default async function HomePage() {
               </Link>
             }
           />
-          <UpcomingList items={upcoming} />
+          <UpcomingList items={upcoming} actions={paymentActions} />
           <div className="upcoming-total">
-            <span>Comprometido este mes</span>
+            <span>Comprometido en {monthLabel(selected)}</span>
             <strong>
-              <Money cents={uyu.committedCents} currency="UYU" />
+              <Money cents={dashboard.cards.remainingCents + dashboard.bills.remainingCents} currency="UYU" />
             </strong>
           </div>
           <Link href="/cuentas" className="link-button" style={{ marginTop: 6 }}>
@@ -168,7 +176,6 @@ export default async function HomePage() {
       <section className="panel">
         <SectionHead
           title="Cómo se proyectan tus finanzas"
-          note={`Próximos ${uyuFlows.length} meses · ${monthLabel(uyuFlows[0]?.period ?? overview.currentMonth)} a ${monthLabel(endOfHorizon?.period ?? overview.currentMonth)}`}
           action={
             <Link href="/proyeccion" className="link-button">
               Ajustar supuestos <Icon name="arrow" size={14} />
@@ -194,10 +201,6 @@ export default async function HomePage() {
         ) : (
           <>
         <ProjectionChart flows={uyuFlows} currency="UYU" />
-        <p className="hint" style={{ marginTop: 8 }}>
-          La barra verde es el dinero disponible para cada mes (saldo con el que arranca + ingresos). La barra
-          rosa, todo lo que sale: tarjeta, cuentas, gastos y ahorro programado.
-        </p>
         <div className="row" style={{ marginTop: 14, gap: 18 }}>
           <span className="hint">
             En {monthLabel(endOfHorizon?.period ?? overview.currentMonth)} te quedarían{' '}
@@ -227,6 +230,13 @@ export default async function HomePage() {
             <Icon name="chevron" size={15} />
           </summary>
           <div className="disclosure-body">
+            {data.input.accounts.map(account => {
+              const b = accountBalanceBreakdown(account,data.input)
+              return <div key={account.id} className="stack-sm">
+                <h3>Saldo actual · {account.name}</h3>
+                <p className="hint">Inicial: <Money cents={b.openingCents} currency={account.currency} /> · Ingresos: <Money cents={b.incomeCents} currency={account.currency} /> · Ajustes: <Money cents={b.adjustmentCents} currency={account.currency} /> · Pagos de tarjeta: <Money cents={b.cardPaymentCents} currency={account.currency} /> · Pagos de cuentas fijas: <Money cents={b.billPaymentCents} currency={account.currency} /> · Otros gastos: <Money cents={b.expenseCents} currency={account.currency} /> · Aportes: <Money cents={b.contributionCents} currency={account.currency} /> · Saldo: <Money cents={b.balanceCents} currency={account.currency} /></p>
+              </div>
+            })}
             <div className="grid-2">
               <div>
                 <h3>Saldo disponible</h3>

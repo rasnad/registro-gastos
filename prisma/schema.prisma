@@ -533,3 +533,24 @@ model SyncLog {
 
   @@index([userId, startedAt])
 }
+
+// Libro de pagos nuevo: independiente de los estados históricos de cuotas.
+model ObligationPayment {
+  id                String   @id @default(cuid())
+  userId            String
+  obligationKind    String
+  obligationId      String
+  period            String
+  currency          Currency
+  amount            Decimal  @db.Decimal(14, 2)
+  paidAt            DateTime @db.Date
+  accountId         String?
+  accountAmount     Decimal? @db.Decimal(14, 2)
+  debitAccount      Boolean  @default(true)
+  note              String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([userId, obligationKind, obligationId, period, currency])
+  @@index([userId, accountId, paidAt])
+}

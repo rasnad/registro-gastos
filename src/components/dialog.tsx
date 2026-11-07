@@ -22,6 +22,7 @@ export function Dialog({
   closeHref,
   trigger = true,
   titleId,
+  triggerContent,
 }: {
   label: string
   icon?: IconName
@@ -34,6 +35,7 @@ export function Dialog({
   closeHref?: string
   trigger?: boolean
   titleId?: string
+  triggerContent?: ReactNode
 }) {
   const [open, setOpen] = useState(defaultOpen)
   const router = useRouter()
@@ -63,7 +65,7 @@ export function Dialog({
       {trigger ? (
         <button type="button" className={buttonClassName} onClick={() => setOpen(true)}>
           {icon ? <Icon name={icon} size={17} /> : null}
-          {label}
+          {triggerContent ?? label}
         </button>
       ) : null}
       {open ? (

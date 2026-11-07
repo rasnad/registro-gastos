@@ -8,6 +8,7 @@ import type { CurrencyCode } from '@/lib/money'
 export type MonthBillItem = {
   name: string
   amountCents: number
+  pendingCents: number
   currency: CurrencyCode
   frequency: string
   sharePercent: number
@@ -100,6 +101,16 @@ export function MonthKpis({ months }: { months: MonthKpi[] }) {
                     ))}
                   </ul>
                 )}
+                {month.items.length > 0 ? (
+                  <div className="kpi-popover-total">
+                    <strong>Total del mes</strong>
+                    <span>
+                      {(['UYU', 'USD'] as CurrencyCode[]).filter(currency => month.items.some(item => item.currency === currency)).map(currency => (
+                        <Money key={currency} cents={month.items.filter(item => item.currency === currency).reduce((sum, item) => sum + item.amountCents, 0)} currency={currency} />
+                      ))}
+                    </span>
+                  </div>
+                ) : null}
                 <p className="kpi-popover-legend">
                   {month.items.some((item) => item.paid) ? 'Verde tachado: ya pagada. ' : ''}
                   {month.items.some((item) => item.frequency !== 'MONTHLY' && !item.paid)

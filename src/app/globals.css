@@ -270,6 +270,12 @@ button:disabled { opacity: 0.55; cursor: not-allowed; box-shadow: none; }
 .due-item, .transaction { display: flex; align-items: center; padding: 11px 0; border-bottom: 1px solid #f1f0ee; gap: 11px; }
 .due-item:last-child, .transaction:last-child { border-bottom: 0; }
 .due-item:hover, .transaction:hover { background: #fcfcfb; }
+.due-list .due-item { padding: 11px 10px; border-radius: 10px; border-bottom: 0; margin-bottom: 5px; }
+.due-list .due-current { background: #fff6d8; }
+.due-list .due-current:hover { background: #ffefbb; }
+.due-list .due-future { background: #f1f1ef; color: #686b70; }
+.due-list .due-future:hover { background: #e8e8e5; }
+.upcoming-pay-button { display: flex; align-items: center; gap: 11px; width: 100%; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .date-box { width: 40px; height: 44px; border-radius: 10px; background: #f2eff7; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--purple-dark); flex: none; }
 .date-box strong { font-size: 14px; line-height: 1; }
 .date-box small { font-size: 8px; font-weight: 700; margin-top: 3px; letter-spacing: 0.4px; }
@@ -308,6 +314,9 @@ button:disabled { opacity: 0.55; cursor: not-allowed; box-shadow: none; }
 .money.positive { color: var(--green); }
 .money.negative { color: var(--danger); }
 .money.muted { color: var(--muted); }
+.currency-amount { display: inline-block; border-radius: 7px; padding: 2px 6px; white-space: nowrap; }
+.currency-amount.uyu { background: #e6f4e9; color: #276744; }
+.currency-amount.usd { background: #fff0df; color: #9a4b13; }
 .currency-block { border-radius: 14px; border: 1px solid var(--line); padding: 12px 14px; background: #fff; }
 .currency-block.usd { background: #fbfbfa; }
 .currency-block > header { display: flex; justify-content: space-between; align-items: center; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); font-weight: 700; margin-bottom: 6px; }
@@ -389,6 +398,15 @@ table.table td { padding: 11px 12px; border-bottom: 1px solid #f3f2f0; vertical-
 table.table tr:last-child td { border-bottom: 0; }
 table.table td.num, table.table th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 table.table tbody tr:hover { background: #fcfcfb; }
+.pending-expandable { position: relative; }
+.pending-table-clip { overflow-y: hidden; transition: height 350ms ease; }
+.pending-expand-control { display: flex; justify-content: center; align-items: end; }
+.pending-expand-control.is-collapsed { position: absolute; left: 1px; right: 1px; bottom: 1px; height: 72px; padding-bottom: 7px; border-radius: 0 0 13px 13px; background: linear-gradient(to bottom, transparent, rgba(255,255,255,.83) 65%, #fff); pointer-events: none; }
+.pending-expand-control.is-expanded { margin-top: 8px; }
+.pending-expand-button { pointer-events: auto; display: grid; place-items: center; width: 34px; height: 34px; border: 1px solid #ddd9e5; border-radius: 50%; background: rgba(255,255,255,.9); color: var(--purple-dark); font-size: 23px; line-height: 1; cursor: pointer; box-shadow: 0 2px 8px rgba(49,39,66,.1); }
+.pending-expand-button:hover { background: #f2eff7; }
+.pending-expand-button:focus-visible { outline: 2px solid var(--purple); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .pending-table-clip { transition: none; } }
 
 /* ------------------------------------------------------------------ */
 /* Modal / diálogo                                                     */
@@ -405,7 +423,8 @@ table.table tbody tr:hover { background: #fcfcfb; }
 /* ------------------------------------------------------------------ */
 /* Tarjetas de crédito y cuotas                                        */
 /* ------------------------------------------------------------------ */
-.cards-layout { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: 18px; align-items: start; }
+.cards-layout { display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 3fr) minmax(0, 3fr); gap: 12px; align-items: stretch; }
+.card-summaries { display: contents; }
 .credit-card { min-height: 200px; border-radius: 20px; padding: 22px; color: #fff; background: linear-gradient(135deg, #303039, #5b5365); box-shadow: 0 17px 30px rgba(46, 43, 53, 0.18); display: flex; flex-direction: column; }
 .credit-card.uyu { background: linear-gradient(135deg, #4a3f63, #6b5f85); }
 .card-top, .card-bottom { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
@@ -417,11 +436,19 @@ table.table tbody tr:hover { background: #fcfcfb; }
 .card-bottom span { font-size: 10px; font-weight: 600; }
 .card-bottom small { display: block; color: rgba(255, 255, 255, 0.5); font-size: 8px; margin-bottom: 2px; letter-spacing: 0.6px; }
 .card-summary > p { font-size: 11.5px; color: var(--muted); }
+.card-summary { min-width: 0; display: flex; flex-direction: column; padding: 16px; }
+.card-summary .between { align-items: flex-start; }
+.card-summary .between p { font-size: 12px; line-height: 1.4; }
 .card-summary > strong { font-size: 30px; letter-spacing: -1px; margin: 5px 0 2px; display: block; }
+.card-paid-amount .money { position: relative; display: inline-block; }
+.card-paid-amount .money::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 2px; background: var(--coral); pointer-events: none; }
+.card-summary > p.card-partial-balance { color: var(--coral); font-size: 13px; font-weight: 700; margin-top: 4px; }
 .card-summary > span { font-size: 11px; color: var(--coral); }
-.card-summary-row { display: grid; grid-template-columns: 1fr 1fr; margin-top: 20px; gap: 10px; }
+.card-summary-row { display: grid; grid-template-columns: 1fr 1fr; margin-top: 12px; gap: 8px; }
 .card-summary-row small { display: block; color: var(--muted); font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.5px; }
 .card-summary-row b { font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.card-summary-actions { margin-top: auto; padding-top: 12px; gap: 6px; }
+.card-summary-actions .hint { font-size: 10.5px; }
 .limit-bar, .installment-bar, .goal-progress { height: 5px; background: #efeeeb; border-radius: 5px; margin-top: 9px; overflow: hidden; }
 .limit-bar span, .installment-bar span, .goal-progress span { display: block; height: 100%; background: var(--purple); border-radius: 5px; }
 .installment { display: grid; grid-template-columns: 1fr auto; gap: 6px; padding: 12px 0; border-bottom: 1px solid var(--line); align-items: center; }
@@ -580,7 +607,8 @@ table.table tbody tr:hover { background: #fcfcfb; }
   .app-header { padding: 18px 26px 6px; }
   .content { padding: 10px 26px 46px; }
   .page-grid { grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr); }
-  .cards-layout { grid-template-columns: 1fr 1fr; }
+  .cards-layout { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cards-layout > .credit-card { grid-column: 1 / -1; }
   .goals-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .settings-layout { grid-template-columns: 1fr; }
   .settings-nav { flex-direction: row; overflow-x: auto; position: static; padding-bottom: 4px; }
@@ -615,7 +643,8 @@ table.table tbody tr:hover { background: #fcfcfb; }
   .goals-grid { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; margin: 0 -16px; padding: 0 16px 6px; gap: 12px; }
   .goal-card { min-width: 78vw; scroll-snap-align: start; }
   .goals-head .secondary-button { padding: 0 12px; }
-  .cards-layout { display: flex; flex-direction: column; }
+  .cards-layout { display: grid; grid-template-columns: minmax(0, 1fr); }
+  .cards-layout > .credit-card { grid-column: auto; }
   .credit-card { min-height: 190px; }
   .month-list { grid-template-columns: 1fr; }
   .projection-hero, .savings-overview, .summary-strip { padding: 18px; align-items: flex-start; flex-direction: column; gap: 14px; }
@@ -806,3 +835,25 @@ table.table tbody tr:hover { background: #fcfcfb; }
 .hero-breakdown > div { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
 .hero-breakdown span { font-size: 11.5px; color: rgba(255, 255, 255, 0.62); }
 .hero-breakdown strong { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* Resumen compacto del tablero */
+.home-top .balance-card { min-height: 0; }
+.home-top .balance-copy { margin: 18px 0; }
+.dashboard-month { display:flex; align-items:center; gap:6px; font-size:11px; position:relative; z-index:1; }
+.dashboard-month input, .dashboard-month button { color:#fff; background:rgba(255,255,255,.13); border:0; border-radius:6px; padding:5px; font:inherit; color-scheme:dark; }
+.dashboard-month button { cursor:pointer; }
+.dashboard-breakdown { margin-top:0; }
+.dashboard-breakdown > div { align-items:center; }
+.dashboard-breakdown > div > div { display:flex; flex-direction:column; gap:3px; }
+.dashboard-breakdown small { color:rgba(255,255,255,.72); font-size:11px; }
+.dashboard-warning { font-size:11px; color:#ffe3b6; margin:12px 0 0; position:relative; z-index:1; }
+.dashboard-detail { color:#fff; font-size:12px; margin-top:12px; position:relative; z-index:1; }
+@media (max-width: 420px) { .balance-top { flex-wrap:wrap; } .dashboard-month { margin-left:auto; } }
+
+.kpi-popover-total { display:flex; justify-content:space-between; gap:12px; border-top:1px solid var(--line); padding:8px 6px 0; margin-top:8px; font-size:11.5px; }
+.kpi-popover-total > span { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; font-weight:600; }
+
+.balance-extra { position:relative; z-index:1; display:grid; gap:5px; margin:0 0 14px; color:rgba(255,255,255,.78); font-size:12px; }
+.balance-extra div { display:flex; justify-content:space-between; gap:12px; }
+.balance-extra strong { color:#fff; }
+.balance-extra small { color:rgba(255,255,255,.65); font-size:11px; }

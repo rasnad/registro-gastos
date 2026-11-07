@@ -1,9 +1,10 @@
 import Link from 'next/link'
 import { Money } from '@/components/ui'
-import { monthLabel, dateLabel } from '@/lib/period'
+import { monthLabel, dateLabel, todayISO } from '@/lib/period'
 import type { MonthlyFlow } from '@/lib/finance/engine'
 import type { CurrencyCode } from '@/lib/money'
 import { Icon } from '@/components/icons'
+import type { ReactNode } from 'react'
 
 export function ProjectionChart({
   flows,
@@ -78,7 +79,9 @@ export function MonthRows({ flows, currency }: { flows: MonthlyFlow[]; currency:
 
 export function UpcomingList({
   items,
+  actions,
 }: {
+  actions?: Record<string, (content: ReactNode) => ReactNode>
   items: Array<{
     id: string
     title: string
@@ -90,7 +93,7 @@ export function UpcomingList({
     href: string
   }>
 }) {
-  const today = new Date().toISOString().slice(0, 10)
+  const today = todayISO()
   if (items.length === 0) {
     return <p className="hint">No hay pagos previstos en los próximos meses.</p>
   }
@@ -100,8 +103,8 @@ export function UpcomingList({
         const day = item.dueDate.slice(8, 10)
         const month = monthLabel(item.dueDate.slice(0, 7), { year: false }).slice(0, 3).toUpperCase()
         const overdue = item.dueDate < today
-        return (
-          <Link key={item.id} href={item.href} className="due-item" style={{ textDecoration: 'none', color: 'inherit' }}>
+        const content = (
+          <>
             <div className="date-box" style={overdue ? { background: '#fbeae7', color: '#b3564a' } : undefined}>
               <strong>{day}</strong>
               <small>{month}</small>
@@ -121,7 +124,13 @@ export function UpcomingList({
                 {item.estimated ? 'Estimado' : dateLabel(item.dueDate)}
               </span>
             </div>
-          </Link>
+          </>
+        )
+        const className = `due-item ${item.dueDate.slice(0, 7) <= today.slice(0, 7) ? 'due-current' : 'due-future'}`
+        return actions?.[item.id] ? (
+          <div key={item.id} className={className}>{actions[item.id](content)}</div>
+        ) : (
+          <Link key={item.id} href={item.href} className={className} style={{ textDecoration: 'none', color: 'inherit' }}>{content}</Link>
         )
       })}
     </div>

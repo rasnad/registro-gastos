@@ -1,3 +1,4 @@
+import { paymentDebits, monthlyCommitments, obligationBalance, type IndependentPayment } from '@/lib/finance/obligations'
 /**
  * Motor de cálculo financiero (puro, sin Prisma ni React).
  *
@@ -26,7 +27,7 @@ import {
   type ISODate,
   type MonthKey,
 } from '@/lib/period'
-import { clampZero, sumCents } from '@/lib/money'
+import { clampZero, sumCents, toCents } from '@/lib/money'
 
 export type CurrencyCode = 'UYU' | 'USD'
 export type PaymentSource = 'ACCOUNT' | 'CREDIT_CARD'
@@ -179,6 +180,8 @@ export type EngineInput = {
   expenses: ExpenseSnapshot[]
   installments: InstallmentSnapshot[]
   cardPayments: CardPaymentSnapshot[]
+  statementTotals?: StatementTotal[]
+  independentPayments: IndependentPayment[]
   bills: BillSnapshot[]
   billOccurrences: BillOccurrenceSnapshot[]
   goals: GoalSnapshot[]
@@ -256,46 +259,51 @@ export function billRangeCents(
   return { min, max, exact: false }
 }
 
-export function accountBalanceAt(
-  account: AccountSnapshot,
-  input: EngineInput,
-  asOf: ISODate = input.today,
-): number {
-  let balance = account.openingCents
+/** Un solo registro de pagos para saldos, obligaciones y pantallas. Las fuentes conservan sus IDs. */
+export function obligationPayments(input: EngineInput): IndependentPayment[] {
+  const payments: IndependentPayment[] = [
+    ...input.independentPayments,
+    ...input.cardPayments.map(p => ({...p, id:`legacy-card:${p.id}`, obligationId:p.creditCardId,
+      obligationKind:'CARD' as const, debitAccount:true,
+      accountAmountCents:p.accountAmountCents ?? (input.accounts.find(a => a.id === p.accountId)?.currency === p.currency ? p.amountCents : null),
+    })),
+    ...input.billOccurrences.filter(o => o.status === 'PAID' && o.paidAt && input.bills.some(b => b.id === o.billId && b.paymentSource === 'ACCOUNT')).map(o => {
+      const bill = input.bills.find(b => b.id === o.billId)!
+      return {id:`legacy-bill:${o.id}`, obligationId:o.billId, obligationKind:'BILL' as const, period:o.period,
+        currency:o.currency, amountCents:billTotalCents(bill,o), accountAmountCents:billExpectedCents(bill,o),
+        accountId:o.accountId, paidAt:o.paidAt!, debitAccount:true}
+    }),
+  ]
+  return [...new Map(payments.map(p => [p.id,p])).values()]
+}
 
-  for (const income of input.incomes) {
-    if (income.accountId !== account.id) continue
-    balance += incomeReceivedUntil(income, asOf)
+export function accountBalanceBreakdown(account: AccountSnapshot, input: EngineInput, asOf = input.today) {
+  const incomeCents = sumCents(input.incomes.filter(i => i.accountId === account.id).map(i => incomeReceivedUntil(i,asOf)))
+  const adjustmentCents = sumCents(input.adjustments.filter(a => a.accountId === account.id && a.date <= asOf).map(a => a.deltaCents))
+  const expenseCents = sumCents(activeExpenses(input).filter(e => e.source === 'ACCOUNT' && e.accountId === account.id && e.date <= asOf).map(e => e.amountCents))
+  const payments = obligationPayments(input)
+  const cardPaymentCents = paymentDebits(payments.filter(p => p.obligationKind !== 'BILL'),account.id,asOf)
+  const billPaymentCents = paymentDebits(payments.filter(p => p.obligationKind === 'BILL'),account.id,asOf)
+  const contributionCents = sumCents(input.contributions.filter(c => c.accountId === account.id && c.date <= asOf).map(c => c.amountCents))
+  return {openingCents:account.openingCents,incomeCents,adjustmentCents,expenseCents,cardPaymentCents,billPaymentCents,contributionCents,
+    balanceCents:account.openingCents+incomeCents+adjustmentCents-expenseCents-cardPaymentCents-billPaymentCents-contributionCents}
+}
+
+/** Ingresos recibidos aún sin asociar a una cuenta, separados por moneda. */
+export function unassignedIncomeByCurrency(input: EngineInput): Record<CurrencyCode,number> {
+  const received = input.incomes.filter(i => i.accountId === null && i.isActive)
+  return {
+    UYU: sumCents(received.filter(i => i.currency === 'UYU').map(i => incomeReceivedUntil(i,input.today))),
+    USD: sumCents(received.filter(i => i.currency === 'USD').map(i => incomeReceivedUntil(i,input.today))),
   }
-  for (const adj of input.adjustments) {
-    if (adj.accountId === account.id && adj.date <= asOf) balance += adj.deltaCents
-  }
-  for (const expense of activeExpenses(input)) {
-    if (expense.source !== 'ACCOUNT' || expense.accountId !== account.id) continue
-    if (expense.date <= asOf) balance -= expense.amountCents
-  }
-  for (const payment of input.cardPayments) {
-    if (payment.accountId !== account.id || payment.paidAt > asOf) continue
-    // Si el resumen era en dólares y se pagó desde una cuenta en pesos,
-    // sale el equivalente convertido, no el importe en dólares.
-    balance -= payment.accountAmountCents ?? payment.amountCents
-  }
-  for (const occurrence of input.billOccurrences) {
-    if (occurrence.accountId !== account.id) continue
-    if (occurrence.status !== 'PAID' || !occurrence.paidAt || occurrence.paidAt > asOf) continue
-    const bill = input.bills.find((b) => b.id === occurrence.billId)
-    if (!bill) continue
-    // Una cuenta pagada con tarjeta nunca debita el banco directamente:
-    // se paga al abonar el resumen.
-    if (bill.paymentSource === 'CREDIT_CARD') continue
-    balance -= billExpectedCents(bill, occurrence)
-  }
-  for (const contribution of input.contributions) {
-    if (contribution.accountId === account.id && contribution.date <= asOf) {
-      balance -= contribution.amountCents
-    }
-  }
-  return balance
+}
+
+export function accountBalanceAt(account: AccountSnapshot, input: EngineInput, asOf: ISODate = input.today): number {
+  return accountBalanceBreakdown(account,input,asOf).balanceCents
+}
+
+export function billObligationBalance(input: EngineInput, bill: BillSnapshot, period: string, occurrence = input.billOccurrences.find(o => o.billId === bill.id && o.period === period)) {
+  return obligationBalance(billTotalCents(bill,occurrence), obligationPayments(input).filter(p => p.obligationKind === 'BILL' && p.obligationId === bill.id && p.period === period && p.currency === bill.currency && p.paidAt <= input.today).map(p => p.amountCents))
 }
 
 export function accountBalances(input: EngineInput): Array<{
@@ -378,7 +386,7 @@ export function billsInMonth(
     if (!isRecurringInPeriod(bill.startDate, bill.endDate, period, step)) continue
     const occurrence =
       input.billOccurrences.find((o) => o.billId === bill.id && o.period === period) ?? null
-    const paid = occurrence?.status === 'PAID'
+    const paid = bill.paymentSource === 'ACCOUNT' && billObligationBalance(input,bill,period,occurrence ?? undefined).status === 'PAID'
     if (paid && !options.includePaid) continue
     const dueDate = occurrence?.dueDate ?? dateInMonth(period, bill.dueDay)
     const range = billRangeCents(bill, occurrence)
@@ -420,17 +428,6 @@ export function cardChargedBillsForPeriod(
     for (const offset of [0, -1, -2]) {
       const month = addMonthsKey(period, offset)
       if (!isRecurringInPeriod(bill.startDate, bill.endDate, month, step)) continue
-      // Si el resumen de esa tarjeta ya está pago, el cargo ya está saldado.
-      if (
-        input.cardPayments.some(
-          (payment) =>
-            payment.creditCardId === bill.creditCardId &&
-            payment.period === period &&
-            payment.currency === bill.currency,
-        )
-      ) {
-        continue
-      }
       const occurrence =
         input.billOccurrences.find((o) => o.billId === bill.id && o.period === month) ?? null
       const dueDate = occurrence?.dueDate ?? dateInMonth(month, bill.dueDay)
@@ -503,13 +500,12 @@ export function computeCurrencySummary(
   // Las cuentas que se pagan con tarjeta no salen del banco: son deuda de tarjeta
   // y se imputan al período del resumen, no al mes del vencimiento.
   const bankBills = bills.filter((b) => !b.chargedToCard)
-  const cardBills = cardChargedBillsForPeriod(input, currency, current)
 
-  const cardDueNowCents =
-    sumCents(currentInstallments.map((i) => i.amountCents)) +
-    sumCents(cardBills.map((b) => b.expectedCents))
-  const cardOverdueCents = sumCents(overdue.map((i) => i.amountCents))
-  const billsDueNowCents = sumCents(bankBills.map((b) => b.expectedCents))
+  const monthBalances = monthObligationBalances(input,current).filter(b => b.currency === currency)
+  const cardDueNowCents = sumCents(monthBalances.filter(b => b.kind === 'CARD').map(b => b.remainingCents))
+  const previousPeriods = [...new Set([...input.installments.filter(i => i.currency === currency).map(i => i.period),...(input.statementTotals ?? []).filter(s => s.currency === currency).map(s => s.period)])].filter(p => p < current)
+  const cardOverdueCents = sumCents(previousPeriods.flatMap(p => input.cards.map(c => cardObligationBalance(input,c.id,p,currency).remainingCents)))
+  const billsDueNowCents = sumCents(monthBalances.filter(b => b.kind === 'BILL').map(b => b.remainingCents))
   const committedCents = cardDueNowCents + cardOverdueCents + billsDueNowCents
   const afterCommitmentsCents = availableCents - committedCents
 
@@ -522,18 +518,10 @@ export function computeCurrencySummary(
   )
   const spentThisMonthCents = sumCents(accountExpensesThisMonth.map((e) => e.amountCents))
 
-  const billsPaidThisMonth = input.billOccurrences.filter((occurrence) => {
-    if (occurrence.status !== 'PAID' || occurrence.period !== current) return false
-    const bill = input.bills.find((item) => item.id === occurrence.billId)
-    if (!bill || bill.currency !== currency) return false
-    return bill.paymentSource === 'ACCOUNT'
-  })
-  const billsPaidThisMonthCents = sumCents(
-    billsPaidThisMonth.map((occurrence) => {
-      const bill = input.bills.find((item) => item.id === occurrence.billId)
-      return bill ? billExpectedCents(bill, occurrence) : 0
-    }),
-  )
+  const billsPaidThisMonthCents = sumCents(obligationPayments(input).filter(p => p.obligationKind === 'BILL' && p.period === current && p.currency === currency && p.paidAt <= input.today).map(p => {
+    const bill = input.bills.find(b => b.id === p.obligationId)
+    return bill ? applyShare(p.amountCents,bill.sharePercent) : 0
+  }))
 
   const plannedSavingsCents = sumCents(
     input.goals
@@ -689,6 +677,8 @@ export function projectMonths(
       if (income.currency !== currency || !income.isActive) continue
       if (!incomeActiveInPeriod(income, period)) continue
       if (isCurrent && (income.dayOfMonth ?? Number(income.startDate.slice(8, 10))) < todayDay) continue
+      // El saldo actual ya incorpora lo cobrado hoy en una cuenta vinculada.
+      if (isCurrent && income.accountId && incomeReceivedUntil(income,input.today) > incomeReceivedUntil(income,monthRange(addMonthsKey(current,-1)).end)) continue
       incomeCents += income.amountCents
     }
     if (incomeCents === 0) {
@@ -702,7 +692,6 @@ export function projectMonths(
     const installments = unpaidInstallments(input).filter(
       (i) => i.currency === currency && i.period === period,
     )
-    const installmentCents = sumCents(installments.map((i) => i.amountCents))
     if (installments.some((i) => i.isEstimated)) {
       assumptions.push('Algunas cuotas están estimadas: el período se calculó con el cierre de la tarjeta.')
     }
@@ -716,9 +705,10 @@ export function projectMonths(
     let billsMaxCents = 0
     for (const item of monthBills) {
       // Si sigue impaga, se debe pagar aunque el vencimiento ya haya pasado.
-      billsCents += scenarioAmount(item, scenario)
-      billsMinCents += item.minCents
-      billsMaxCents += item.maxCents
+      const paid = applyShare(billObligationBalance(input,item.bill,period,item.occurrence ?? undefined).paidCents,item.bill.sharePercent)
+      billsCents += Math.max(0,scenarioAmount(item, scenario)-paid)
+      billsMinCents += Math.max(0,item.minCents-paid)
+      billsMaxCents += Math.max(0,item.maxCents-paid)
       if (!item.exact) {
         assumptions.push(`${item.bill.name}: importe variable, se proyecta entre ${item.minCents} y ${item.maxCents}.`)
         missing.push(`El importe real de ${item.bill.name} todavía no se conoce.`)
@@ -747,7 +737,7 @@ export function projectMonths(
     if (!includeSavings && input.goals.length > 0) {
       assumptions.push('No se descuenta el ahorro programado de los objetivos.')
     }
-    const cardCents = installmentCents + cardBillsCents
+    const cardCents = sumCents(input.cards.map(c => cardObligationBalance(input,c.id,period,currency).remainingCents))
 
     // Gastos ya registrados con débito/efectivo en el mes.
     const accountExpenses = activeExpenses(input).filter(
@@ -755,7 +745,7 @@ export function projectMonths(
         e.currency === currency &&
         e.source === 'ACCOUNT' &&
         monthKeyOf(e.date) === period &&
-        (!isCurrent || e.date >= input.today),
+        (!isCurrent || e.date > input.today),
     )
     const otherExpensesCents = sumCents(accountExpenses.map((e) => e.amountCents))
 
@@ -816,40 +806,15 @@ export function upcomingPayments(input: EngineInput, limitPerCurrency = 6): Upco
   const current = currentOf(input)
   const items: UpcomingPayment[] = []
 
-  const cardsById = new Map(input.cards.map((c) => [c.id, c]))
-
-  for (const installment of unpaidInstallments(input)) {
-    if (installment.period < current) {
-      items.push({
-        id: `inst-${installment.id}`,
-        kind: 'INSTALLMENT',
-        title: cardsById.get(installment.cardId ?? '')?.name ?? 'Tarjeta',
-        subtitle: `Cuota ${installment.number} de ${installment.count}${installment.isEstimated ? ' · estimada' : ''}`,
-        dueDate: installment.dueDate ?? statementDueDate(installment.period, cardsById.get(installment.cardId ?? '')?.dueDay ?? 1),
-        amountCents: installment.amountCents,
-        currency: installment.currency,
-        estimated: installment.isEstimated,
-        href: '/tarjetas',
-      })
-      continue
-    }
-    const card = cardsById.get(installment.cardId ?? '')
-    items.push({
-      id: `inst-${installment.id}`,
-      kind: 'INSTALLMENT',
-      title: card?.name ?? 'Tarjeta',
-      subtitle: `Cuota ${installment.number} de ${installment.count}${installment.isEstimated ? ' · estimada' : ''}`,
-      dueDate: installment.dueDate ?? statementDueDate(installment.period, card?.dueDay ?? 1),
-      amountCents: installment.amountCents,
-      currency: installment.currency,
-      estimated: installment.isEstimated,
-      href: '/tarjetas',
-    })
+  const cardPeriods = [...new Set([...input.installments.map(i => i.period),...(input.statementTotals ?? []).map(s => s.period), current,addMonthsKey(current,1),addMonthsKey(current,2)])]
+  for (const period of cardPeriods.filter(period => period >= current)) for (const card of input.cards) for (const currency of ['UYU','USD'] as const) {
+    const balance = cardObligationBalance(input,card.id,period,currency)
+    if (!balance.remainingCents) continue
+    items.push({id:`card-${card.id}-${period}-${currency}`,kind:'CARD',title:card.name,subtitle:`Resumen de ${period}`,dueDate:statementDueDate(period,card.dueDay),amountCents:balance.remainingCents,currency,estimated:!input.statementTotals?.some(s => s.cardId === card.id && s.period === period && s.currency === currency),href:'/tarjetas'})
   }
 
   for (const period of [addMonthsKey(current, 0), addMonthsKey(current, 1), addMonthsKey(current, 2)]) {
     for (const item of billsInMonth(input, period)) {
-      if (item.dueDate < input.today) continue
       if (item.chargedToCard) continue
       items.push({
         id: `bill-${item.bill.id}-${period}`,
@@ -857,7 +822,7 @@ export function upcomingPayments(input: EngineInput, limitPerCurrency = 6): Upco
         title: item.bill.name,
         subtitle: item.exact ? 'Cuenta del mes' : 'Importe estimado',
         dueDate: item.dueDate,
-        amountCents: item.expectedCents,
+        amountCents: applyShare(billObligationBalance(input,item.bill,period,item.occurrence ?? undefined).remainingCents,item.bill.sharePercent),
         currency: item.bill.currency,
         estimated: !item.exact,
         href: '/cuentas',
@@ -1051,4 +1016,57 @@ export function tightMonths(flow: MonthlyFlow[]): MonthKey[] {
 
 export function monthBounds(period: MonthKey) {
   return monthRange(period)
+}
+
+
+export type StatementTotal = { cardId: string; period: string; currency: CurrencyCode; totalCents: number }
+
+/** Las filas llegan de más reciente a más antigua: una sola referencia por tarjeta, mes y moneda. */
+export function statementTotalsFromImports(rows: {creditCardId:string|null;period:string|null;currency?:string|null;totalUyu:unknown;totalUsd:unknown;totalAmount:unknown}[]): StatementTotal[] {
+  const totals: StatementTotal[] = []
+  for (const row of rows) {
+    if (!row.creditCardId || !row.period) continue
+    for (const currency of ['UYU','USD'] as const) {
+      const amount = currency === 'UYU' ? row.totalUyu ?? (row.currency !== 'USD' ? row.totalAmount : null) : row.totalUsd ?? (row.currency === 'USD' ? row.totalAmount : null)
+      if (amount == null || totals.some(t => t.cardId === row.creditCardId && t.period === row.period && t.currency === currency)) continue
+      totals.push({cardId:row.creditCardId,period:row.period,currency,totalCents:toCents(amount)})
+    }
+  }
+  return totals
+}
+
+export function cardObligationBalance(input: EngineInput, cardId: string, period: string, currency: CurrencyCode) {
+  const installments = input.installments.filter(i => i.cardId === cardId && i.period === period && i.currency === currency && i.expenseStatus !== 'DISCARDED')
+  const imported = input.statementTotals?.find(s => s.cardId === cardId && s.period === period && s.currency === currency)
+  const charged = cardChargedBillsForPeriod(input,currency,period).filter(b => b.bill.creditCardId === cardId)
+  const total = imported?.totalCents ?? sumCents(installments.map(i => i.amountCents)) + sumCents(charged.map(b => b.expectedCents))
+  const payments = obligationPayments(input).filter(p => p.obligationKind === 'CARD' && p.obligationId === cardId && p.period === period && p.currency === currency && p.paidAt <= input.today)
+  return obligationBalance(total,payments.map(p => p.amountCents))
+}
+
+/** Obligaciones originales del mes. Los pagos sólo modifican paid/remaining, nunca total. */
+export function monthObligationBalances(input: EngineInput, period: string) {
+  const bills = billsInMonth(input,period,{includePaid:true}).filter(b => !b.chargedToCard).map(item => {
+    const balance = billObligationBalance(input,item.bill,period,item.occurrence ?? undefined)
+    const totalCents = item.expectedCents
+    const paidCents = applyShare(balance.paidCents,item.bill.sharePercent)
+    return {id:item.bill.id,kind:'BILL' as const,period,currency:item.bill.currency,...obligationBalance(totalCents,[paidCents])}
+  })
+  const cards = input.cards.flatMap(card => (['UYU','USD'] as const).map(currency => ({
+    id:card.id,kind:'CARD' as const,period,currency,...cardObligationBalance(input,card.id,period,currency),
+  }))).filter(b => b.totalCents > 0 || b.paidCents > 0)
+  return [...cards,...bills]
+}
+
+/** Vista consolidada en pesos solicitada para el tablero; el resto de reportes conserva monedas separadas. */
+export function dashboardCommitments(input: EngineInput, period: string, rate: number, statements = input.statementTotals ?? []) {
+  const withStatements = {...input,statementTotals:statements}
+  const balances = monthObligationBalances(withStatements,period)
+  const payments: IndependentPayment[] = balances.map(b => ({id:`${b.kind}:${b.id}:${b.period}:${b.currency}`,obligationId:b.id,obligationKind:b.kind,period:b.period,currency:b.currency,amountCents:b.paidCents,accountId:null,accountAmountCents:null,paidAt:input.today,debitAccount:false}))
+  const currentBalance = sumCents(accountBalances(input).filter(a => a.currency === 'UYU').map(a => a.balanceCents))
+  const warnings: string[] = []
+  if (billsInMonth(input,period,{includePaid:true}).some(b => !b.exact)) warnings.push('Hay cuentas variables sin importe real; los compromisos son estimados.')
+  if (input.cardPayments.some(old => input.independentPayments.some(p => p.obligationKind === 'CARD' && p.obligationId === old.creditCardId && p.period === old.period && p.currency === old.currency))) warnings.push('Hay pagos históricos y nuevos para un mismo resumen; revisá el historial para descartar duplicaciones.')
+  if (input.billOccurrences.some(old => old.status === 'PAID' && input.independentPayments.some(p => p.obligationKind === 'BILL' && p.obligationId === old.billId && p.period === old.period && p.currency === old.currency))) warnings.push('Hay pagos históricos y nuevos para una misma cuenta fija; revisá el historial para descartar duplicaciones.')
+  return {...monthlyCommitments(period,currentBalance,balances,payments,rate),warnings}
 }
