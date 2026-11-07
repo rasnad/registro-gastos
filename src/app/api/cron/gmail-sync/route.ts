@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { syncAllGmailUsers } from '@/lib/gmail/sync'
+import { renewAllGmailWatches } from '@/lib/gmail/watch'
 
 export const maxDuration = 60
 export const dynamic = 'force-dynamic'
@@ -19,10 +20,12 @@ export async function GET(request: Request) {
   }
 
   try {
+    const watch = await renewAllGmailWatches()
     const result = await syncAllGmailUsers()
     return NextResponse.json({
       ok: true,
       users: result.users,
+      watch,
       summary: result.results.map((item) => ({
         imported: item.imported,
         needsReview: item.needsReview,

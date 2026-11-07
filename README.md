@@ -70,6 +70,16 @@ ALLOW_DEMO_SEED=1 npm run seed:demo
 | `GOOGLE_REDIRECT_URI` | Gmail | Debe coincidir exactamente con la registrada en Google. |
 | `GMAIL_ALLOWED_SENDER_DOMAINS` | Recomendada | Dominios aceptados, separados por coma (`itau.com.uy,itau.com`). |
 | `CRON_SECRET` | Cron | Secreto que Vercel Cron envía como `Authorization: Bearer`. |
+| `GMAIL_PUBSUB_TOPIC` | Push de Gmail | Nombre completo del tema Pub/Sub del mismo proyecto que el cliente OAuth. |
+| `GMAIL_PUBSUB_AUDIENCE` | Push de Gmail | Audiencia OIDC exacta configurada en la suscripción push. |
+| `GMAIL_PUBSUB_SERVICE_ACCOUNT` | Push de Gmail | Correo de la cuenta de servicio usada por la suscripción autenticada. |
+
+Las notificaciones push requieren una suscripción Pub/Sub autenticada dirigida a
+`https://DOMINIO/api/gmail/push`. El endpoint valida la firma, audiencia y cuenta de servicio
+del token de Google. Gmail publica en el tema mediante `gmail-api-push@system.gserviceaccount.com`
+con el rol de publicador limitado al tema. La sincronización diaria renueva el `watch` y sirve
+de respaldo; «Sincronizar ahora» también intenta activarlo. Se conservan los filtros existentes
+de remitente y asunto, y solo se procesan conexiones activas con sincronización automática.
 
 **Nunca** se commitea `.env` (está en `.gitignore`). `.env.example` no contiene valores reales.
 

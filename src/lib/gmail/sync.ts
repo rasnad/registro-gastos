@@ -367,6 +367,12 @@ export async function syncGmailForUser(userId: string): Promise<SyncResult> {
             status,
           })
         } catch (error) {
+          // Otra sincronización pudo importar este mensaje en paralelo. La creación
+          // del gasto y del marcador es atómica y la restricción única evita duplicarlo.
+          if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002') {
+            skipped += 1
+            continue
+          }
           errors += 1
           const message = error instanceof Error ? error.message.slice(0, 160) : 'Error desconocido'
           errorMessages.push(message)

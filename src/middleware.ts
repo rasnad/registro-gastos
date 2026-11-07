@@ -11,6 +11,7 @@ const PUBLIC_PATHS = [
   '/login',
   '/api/auth',
   '/api/gmail/callback',
+  '/api/gmail/push',
   '/api/cron',
   '/api/health',
   '/manifest.webmanifest',

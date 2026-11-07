@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/db'
 import { requireUser } from '@/lib/auth'
 import { syncGmailForUser } from '@/lib/gmail/sync'
+import { renewGmailWatch } from '@/lib/gmail/watch'
 import type { ActionState } from '@/lib/action-state'
 
 function revalidateGmail() {
@@ -38,13 +39,19 @@ export async function syncGmailNow(_prev: ActionState, formData: FormData): Prom
     return { error: 'La conexión está inactiva. Volvé a conectar tu cuenta de Gmail.' }
   }
 
+  let watchFailed = false
+  try {
+    await renewGmailWatch(user.id)
+  } catch {
+    watchFailed = true
+  }
   const result = await syncGmailForUser(user.id)
   revalidateGmail()
   if (!result.ok && result.message.includes('invalid_grant')) {
     return { error: 'Google revocó el acceso. Desconectá y volvé a conectar Gmail.' }
   }
   return result.ok
-    ? { ok: true, message: result.message }
+    ? { ok: true, message: result.message + (watchFailed ? ' No se pudo activar la sincronización rápida; se reintentará automáticamente.' : '') }
     : { error: result.message }
 }
 
