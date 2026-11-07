@@ -55,7 +55,7 @@ export default async function TarjetasPage() {
 
   return (
     <div className="stack">
-      <div className="between" style={{ flexWrap: 'wrap', gap: 10 }}>
+      <div className="between tarjetas-toolbar" style={{ flexWrap: 'wrap', gap: 10 }}>
         <Dialog label="Agregar tarjeta" icon="plus" buttonClassName="secondary-button" title="Nueva tarjeta de crédito">
           <CardForm />
         </Dialog>

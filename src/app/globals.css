@@ -857,3 +857,11 @@ table.table tbody tr:hover { background: #fcfcfb; }
 .balance-extra div { display:flex; justify-content:space-between; gap:12px; }
 .balance-extra strong { color:#fff; }
 .balance-extra small { color:rgba(255,255,255,.65); font-size:11px; }
+
+/* Alinear las acciones superiores de la pantalla de tarjetas. */
+.app-main:has(.tarjetas-toolbar) { position: relative; }
+.app-main:has(.tarjetas-toolbar) .app-header { position: absolute; z-index: 2; top: 12px; left: 0; right: 0; width: 100%; max-width: 1320px; min-height: 40px; padding: 0 40px; margin: auto; pointer-events: none; }
+.app-main:has(.tarjetas-toolbar) .header-actions { pointer-events: auto; }
+.tarjetas-toolbar { padding-right: 56px; min-height: 40px; }
+@media (max-width: 1100px) { .app-main:has(.tarjetas-toolbar) .app-header { top: 10px; padding: 0 26px; } }
+@media (max-width: 780px) { .app-main:has(.tarjetas-toolbar) .app-header { top: 6px; padding: 0 16px; } .tarjetas-toolbar { padding-right: 100px; } }

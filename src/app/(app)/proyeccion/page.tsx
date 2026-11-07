@@ -2,6 +2,8 @@ import Link from 'next/link'
 import type { Metadata } from 'next'
 import { requireUser } from '@/lib/auth'
 import { loadFinanceData } from '@/lib/finance/data'
+import { projectMonthsInPesos } from '@/lib/finance/engine'
+import { formatRate } from '@/lib/money'
 import { monthLabel } from '@/lib/period'
 import { Money, Alert, SectionHead, Badge } from '@/components/ui'
 import { Icon } from '@/components/icons'
@@ -12,57 +14,27 @@ export const dynamic = 'force-dynamic'
 
 type Params = Promise<Record<string, string | string[] | undefined>>
 
-function single(value: string | string[] | undefined): string {
-  return typeof value === 'string' ? value : ''
-}
-
 export default async function ProyeccionPage({ searchParams }: { searchParams: Params }) {
   const user = await requireUser()
   const params = await searchParams
-  const currency = single(params.moneda) === 'USD' ? 'USD' : 'UYU'
-  const scenarioParam = single(params.escenario)
-  const scenario =
-    scenarioParam === 'conservador' || scenarioParam === 'optimista' ? scenarioParam : 'base'
-  const includeSavings = single(params.ahorro) !== '0'
+  const currency = 'UYU' as const
+  const savingsParam = params.ahorro
+  const includeSavings = savingsParam === undefined || (Array.isArray(savingsParam) ? savingsParam.includes('1') : savingsParam === '1')
 
   const data = await loadFinanceData(user.id, {
     months: 12,
-    scenario,
     includeSavings,
   })
   const summary = data.overview.summaries[currency]
-  const flows = data.overview.projections[currency]
+  const flows = projectMonthsInPesos(data.input,user.usdRateCents,12,{includeSavings})
   const last = flows[flows.length - 1]
-  const hasData =
-    data.input.accounts.some((account) => account.currency === currency) ||
-    data.input.expenses.some((expense) => expense.currency === currency) ||
-    data.input.installments.some((installment) => installment.currency === currency)
-
-  const href = (nextCurrency: string) =>
-    `/proyeccion?moneda=${nextCurrency}&escenario=${scenario}${includeSavings ? '' : '&ahorro=0'}`
+  const hasData = data.input.accounts.length > 0 || data.input.expenses.length > 0 || data.input.installments.length > 0 || data.input.incomes.length > 0 || data.input.bills.length > 0
 
   return (
     <div className="stack">
       <div className="between" style={{ flexWrap: 'wrap' }}>
-        <div className="filter-tabs" role="tablist" aria-label="Moneda">
-          <Link href={href('UYU')} className={currency === 'UYU' ? 'selected' : ''} role="tab">
-            Pesos (UYU)
-          </Link>
-          <Link href={href('USD')} className={currency === 'USD' ? 'selected' : ''} role="tab">
-            Dólares (USD)
-          </Link>
-        </div>
-
         <form method="get" className="row" style={{ gap: 8 }}>
-          <input type="hidden" name="moneda" value={currency} />
-          <label className="field" style={{ margin: 0 }}>
-            <span>Escenario para cuentas variables</span>
-            <select className="select" name="escenario" defaultValue={scenario} style={{ width: 200 }}>
-              <option value="base">Base (promedio del rango)</option>
-              <option value="conservador">Conservador (máximo)</option>
-              <option value="optimista">Optimista (mínimo)</option>
-            </select>
-          </label>
+          <input type="hidden" name="ahorro" value="0" />
           <label className="checkbox" style={{ margin: 0 }}>
             <input type="checkbox" name="ahorro" value="1" defaultChecked={includeSavings} />
             <span>Descontar ahorro programado</span>
@@ -73,11 +45,14 @@ export default async function ProyeccionPage({ searchParams }: { searchParams: P
         </form>
       </div>
 
+      {includeSavings && !data.input.goals.some(goal => goal.isActive && (goal.monthlyTargetCents ?? 0) > 0) ? (
+        <p className="hint">No hay un importe mensual programado para ahorrar. Podés configurarlo en <Link href="/ahorro" className="link-button">Ahorro</Link>.</p>
+      ) : null}
+
       {!hasData ? (
-        <Alert tone="info" title={`No hay datos en ${currency === 'UYU' ? 'pesos' : 'dólares'}`}>
+        <Alert tone="info" title="No hay datos para proyectar">
           <p>
-            Registrá una cuenta, un ingreso o un gasto en esta moneda para ver su proyección. Las monedas no se
-            convierten entre sí.
+            Registrá una cuenta, un ingreso o un gasto para ver su proyección.
           </p>
           <p style={{ marginTop: 8 }}>
             <Link href="/ajustes#cuentas" className="link-button">
@@ -129,18 +104,10 @@ export default async function ProyeccionPage({ searchParams }: { searchParams: P
             </Alert>
           ) : null}
 
-          {scenario !== 'base' ? (
-            <Alert tone="info">
-              {scenario === 'conservador'
-                ? 'Escenario conservador: las cuentas con importe variable usan el máximo del rango.'
-                : 'Escenario optimista: las cuentas con importe variable usan el mínimo del rango.'}
-            </Alert>
-          ) : null}
-
           <section className="panel chart-panel">
             <SectionHead
-              title={`Panorama de ${currency === 'UYU' ? 'pesos' : 'dólares'}`}
-              note="Saldo al cierre de cada mes, con los compromisos ya registrados"
+              title="Panorama en pesos"
+              note={`Saldo estimado al cierre de cada mes · dólar a $U ${formatRate(user.usdRateCents)}`}
             />
             <ProjectionChart flows={flows} currency={currency} />
           </section>
@@ -259,7 +226,7 @@ export default async function ProyeccionPage({ searchParams }: { searchParams: P
           </section>
 
           <p className="hint" style={{ textAlign: 'center' }}>
-            Proyección estimada, no una promesa. Los valores en {currency} no incluyen otras monedas.
+            Proyección estimada. Los importes en dólares se convierten a pesos usando la cotización vigente de Ajustes; los pagos realizados conservan su débito registrado.
           </p>
         </>
       )}

@@ -27,7 +27,7 @@ import {
   type ISODate,
   type MonthKey,
 } from '@/lib/period'
-import { clampZero, sumCents, toCents } from '@/lib/money'
+import { clampZero, sumCents, toCents, convertUsdToUyu } from '@/lib/money'
 
 export type CurrencyCode = 'UYU' | 'USD'
 export type PaymentSource = 'ACCOUNT' | 'CREDIT_CARD'
@@ -784,6 +784,36 @@ export function projectMonths(
     previousEnd = endCents
   }
   return flows
+}
+
+/** Proyección consolidada en pesos para la pantalla de proyección; no modifica los movimientos originales. */
+export function projectMonthsInPesos(input: EngineInput, rateCents: number, months = 6, options: ProjectionOptions = {}): MonthlyFlow[] {
+  if (!Number.isSafeInteger(rateCents) || rateCents <= 0) throw new RangeError('La cotización debe ser positiva.')
+  const pesos = projectMonths(input,'UYU',months,options)
+  const dollars = projectMonths(input,'USD',months,options)
+  let previousEnd = 0
+  return pesos.map((uyu,index) => {
+    const usd = dollars[index]
+    if (!usd || usd.period !== uyu.period) throw new Error('Los períodos de proyección no coinciden.')
+    const convert = (cents: number) => convertUsdToUyu(cents,rateCents)
+    const startCents = uyu.isCurrent ? uyu.startCents + convert(usd.startCents) : previousEnd
+    const incomeCents = uyu.incomeCents + convert(usd.incomeCents)
+    const cardCents = uyu.cardCents + convert(usd.cardCents)
+    const billsCents = uyu.billsCents + convert(usd.billsCents)
+    const billsMinCents = uyu.billsMinCents + convert(usd.billsMinCents)
+    const billsMaxCents = uyu.billsMaxCents + convert(usd.billsMaxCents)
+    const otherExpensesCents = uyu.otherExpensesCents + convert(usd.otherExpensesCents)
+    const savingsCents = uyu.savingsCents + convert(usd.savingsCents)
+    const endCents = startCents + incomeCents - cardCents - billsCents - otherExpensesCents - savingsCents
+    const endMinCents = endCents - (billsMaxCents - billsCents)
+    const endMaxCents = endCents + (billsCents - billsMinCents)
+    previousEnd = endCents
+    return {...uyu,startCents,incomeCents,cardCents,billsCents,billsMinCents,billsMaxCents,otherExpensesCents,savingsCents,endCents,endMinCents,endMaxCents,
+      freeMarginCents:incomeCents-cardCents-billsCents-otherExpensesCents,
+      assumptions:[...new Set([...uyu.assumptions,...usd.assumptions])],
+      missing:[...new Set([...uyu.missing,...usd.missing.filter(message => message !== 'No hay ingresos previstos para este mes.')])],
+    }
+  })
 }
 
 /* ------------------------------------------------------------------ */

@@ -81,7 +81,6 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     }
   }
   const uyuFlows = overview.projections.UYU
-  const endOfHorizon = uyuFlows[uyuFlows.length - 1]
   const tight = uyuFlows.filter((flow) => flow.endMinCents < 0)
 
   return (
@@ -202,13 +201,6 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           <>
         <ProjectionChart flows={uyuFlows} currency="UYU" />
         <div className="row" style={{ marginTop: 14, gap: 18 }}>
-          <span className="hint">
-            En {monthLabel(endOfHorizon?.period ?? overview.currentMonth)} te quedarían{' '}
-            <strong>
-              <Money cents={endOfHorizon?.endCents ?? 0} currency="UYU" />
-            </strong>{' '}
-            si se mantienen tus ingresos y compromisos.
-          </span>
           {tight.length > 0 ? (
             <Badge tone="warn">
               {tight.length} mes{tight.length === 1 ? '' : 'es'} con saldo proyectado negativo

@@ -10,6 +10,7 @@ import {
   computeCurrencySummary,
   planGoals,
   projectMonths,
+  projectMonthsInPesos,
   type EngineInput,
 } from '@/lib/finance/engine'
 import { splitInstallments } from '@/lib/money'
@@ -682,5 +683,64 @@ describe('proyección de movimientos de hoy', () => {
     expect(flow.startCents).toBe(990000)
     expect(flow.otherExpensesCents).toBe(0)
     expect(flow.endCents).toBe(990000)
+  })
+})
+
+
+describe('ahorro programado en la proyección', () => {
+  it('descuenta el importe mensual solamente cuando está activado', () => {
+    const input = baseInput()
+    input.goals.push({id:'goal',name:'Meta',currency:'UYU',targetCents:1000000,targetDate:'2026-12-01',monthlyTargetCents:25000,priority:1,isActive:true})
+    const enabled = projectMonths(input,'UYU',1,{includeSavings:true})[0]
+    const disabled = projectMonths(input,'UYU',1,{includeSavings:false})[0]
+    expect(enabled.savingsCents).toBe(25000)
+    expect(disabled.savingsCents).toBe(0)
+    expect(disabled.endCents - enabled.endCents).toBe(25000)
+  })
+})
+
+
+describe('proyección consolidada en pesos', () => {
+  it('incluye resúmenes USD futuros al tipo de cambio y mantiene la continuidad mensual', () => {
+    const input=baseInput();input.incomes=[]
+    input.statementTotals=[{cardId:'card-1',period:'2025-06',currency:'USD',totalCents:10000},{cardId:'card-1',period:'2025-07',currency:'USD',totalCents:5000}]
+    const flows=projectMonthsInPesos(input,4100,2)
+    expect(flows[0].cardCents).toBe(410000)
+    expect(flows[0].endCents).toBe(590000)
+    expect(flows[1].startCents).toBe(590000)
+    expect(flows[1].cardCents).toBe(205000)
+    expect(flows[1].endCents).toBe(385000)
+    expect(input.statementTotals[0].totalCents).toBe(10000)
+  })
+  it('reconoce un pago parcial en USD debitado en pesos sin restarlo dos veces', () => {
+    const input=baseInput();input.incomes=[]
+    input.statementTotals=[{cardId:'card-1',period:'2025-06',currency:'USD',totalCents:10000}]
+    input.independentPayments=[{id:'payment',obligationId:'card-1',obligationKind:'CARD',period:'2025-06',currency:'USD',amountCents:4000,accountAmountCents:164000,accountId:'acc-uyu',paidAt:'2025-06-20',debitAccount:true}]
+    const flow=projectMonthsInPesos(input,4100,1)[0]
+    expect(flow.startCents).toBe(836000)
+    expect(flow.cardCents).toBe(246000)
+    expect(flow.endCents).toBe(590000)
+  })
+  it('convierte saldo en dólares, ingresos y rangos variables sin alterar los datos originales', () => {
+    const input=baseInput(); input.incomes=[]
+    input.accounts.push({...input.accounts[0],id:'usd-account',currency:'USD',openingCents:10000})
+    input.incomes.push({id:'income-usd',description:'USD',amountCents:5000,currency:'USD',kind:'FIXED',recurrence:null,dayOfMonth:null,startDate:'2025-06-25',endDate:null,accountId:'usd-account',isActive:true})
+    input.bills.push({id:'usd-bill',name:'USD',categoryId:null,currency:'USD',amountType:'RANGE',amountFixedCents:null,amountMinCents:1000,amountMaxCents:3000,sharePercent:100,frequency:'MONTHLY',dueDay:20,paymentSource:'ACCOUNT',accountId:'usd-account',creditCardId:null,startDate:'2025-06-01',endDate:null,isActive:true})
+    const flow=projectMonthsInPesos(input,4100,1)[0]
+    expect(flow.startCents).toBe(1410000)
+    expect(flow.incomeCents).toBe(205000)
+    expect(flow.billsCents).toBe(82000)
+    expect(flow.billsMinCents).toBe(41000)
+    expect(flow.billsMaxCents).toBe(123000)
+    expect(flow.endCents).toBe(1533000)
+    expect(flow.endMinCents).toBe(1492000)
+    expect(flow.endMaxCents).toBe(1574000)
+  })
+  it('respeta la opción de ahorro y rechaza una cotización inválida', () => {
+    const input=baseInput();input.incomes=[]
+    input.goals.push({id:'usd-goal',name:'Meta',currency:'USD',targetCents:100000,targetDate:'2026-12-01',monthlyTargetCents:1000,priority:1,isActive:true})
+    expect(projectMonthsInPesos(input,4100,1,{includeSavings:true})[0].savingsCents).toBe(41000)
+    expect(projectMonthsInPesos(input,4100,1,{includeSavings:false})[0].savingsCents).toBe(0)
+    expect(()=>projectMonthsInPesos(input,0,1)).toThrow(RangeError)
   })
 })
