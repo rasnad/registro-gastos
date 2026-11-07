@@ -17,6 +17,8 @@ function revalidateAll() {
   for (const path of ['/', '/movimientos', '/tarjetas', '/proyeccion', '/ahorro', '/cuentas']) {
     revalidatePath(path)
   }
+  revalidatePath('/ajustes')
+  revalidatePath('/', 'layout')
 }
 
 async function ownedAccount(userId: string, id: string | null) {
@@ -317,9 +319,18 @@ export async function setExpenseStatus(_prev: ActionState, formData: FormData): 
   if (!['CONFIRMED', 'NEEDS_REVIEW', 'DISCARDED'].includes(status)) {
     return { error: 'Estado inválido.' }
   }
-  const result = await prisma.expense.updateMany({
-    where: { id, userId: user.id },
-    data: { status: status as 'CONFIRMED' | 'NEEDS_REVIEW' | 'DISCARDED' },
+  const result = await prisma.$transaction(async (tx) => {
+    const updated = await tx.expense.updateMany({
+      where: { id, userId: user.id },
+      data: { status: status as 'CONFIRMED' | 'NEEDS_REVIEW' | 'DISCARDED' },
+    })
+    if (updated.count > 0 && status !== 'NEEDS_REVIEW') {
+      await tx.processedGmailMessage.updateMany({
+        where: { expenseId: id, connection: { userId: user.id }, status: 'NEEDS_REVIEW' },
+        data: { status: status === 'CONFIRMED' ? 'IMPORTED' : 'SKIPPED_IRRELEVANT', reason: null },
+      })
+    }
+    return updated
   })
   if (result.count === 0) return { error: 'El movimiento no existe.' }
   revalidateAll()

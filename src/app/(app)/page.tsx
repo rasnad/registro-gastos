@@ -9,7 +9,7 @@ import { PayBillForm, CardPaymentForm } from '@/components/forms/other-forms'
 import type { ReactNode } from 'react'
 import { Money, Alert, SectionHead, Badge } from '@/components/ui'
 import { Icon } from '@/components/icons'
-import { dateLabel, monthLabel, todayISO } from '@/lib/period'
+import { monthLabel } from '@/lib/period'
 import { ProjectionChart, UpcomingList } from '@/components/finance/projection-chart'
 
 export const metadata: Metadata = { title: 'Inicio' }
@@ -24,7 +24,6 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const { overview } = data
   const uyu = overview.summaries.UYU
   const usd = overview.summaries.USD
-  const today = todayISO()
   const unassignedIncome = unassignedIncomeByCurrency(data.input)
 
   const hasUsd =
@@ -120,7 +119,6 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
       <div className="page-grid home-top">
         <section className="balance-card" aria-label="Saldo disponible">
           <div className="balance-top">
-            <span className="status-chip"><i /> Saldos al {dateLabel(today)}</span>
             <form className="dashboard-month" action="/">
               <label htmlFor="dashboard-month">Mes</label>
               <input id="dashboard-month" name="mes" type="month" defaultValue={selected} required />

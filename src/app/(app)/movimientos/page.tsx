@@ -68,7 +68,7 @@ export default async function MovimientosPage({ searchParams }: { searchParams: 
     }),
     prisma.expense.groupBy({
       by: ['currency'],
-      where: { ...where, status: { not: 'DISCARDED' } },
+      where,
       _sum: { amount: true },
       _count: { _all: true },
     }),

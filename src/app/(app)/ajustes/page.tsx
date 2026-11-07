@@ -45,7 +45,7 @@ export default async function AjustesPage({ searchParams }: { searchParams: Para
   const params = await searchParams
   const gmailStatus = single(params.gmail)
 
-  const [data, options, accounts, incomes, cardRows, categories, rules, connection, messages, syncLogs, imports] =
+  const [data, options, accounts, incomes, cardRows, categories, rules, connection, pendingMessages, syncLogs, imports] =
     await Promise.all([
       loadFinanceData(user.id, { months: 6 }),
       loadFormOptions(user.id),
@@ -67,12 +67,13 @@ export default async function AjustesPage({ searchParams }: { searchParams: Para
       prisma.processedGmailMessage.findMany({
         where: { connection: { userId: user.id }, status: 'NEEDS_REVIEW' },
         orderBy: { receivedAt: 'desc' },
-        take: 20,
       }),
       prisma.syncLog.findMany({ where: { userId: user.id }, orderBy: { startedAt: 'desc' }, take: 5 }),
       prisma.statementImport.findMany({ where: { userId: user.id }, orderBy: { createdAt: 'desc' }, take: 5 }),
     ])
 
+  const expenseStatus = new Map(data.input.expenses.map(expense => [expense.id, expense.status]))
+  const messages = pendingMessages.filter(message => !message.expenseId || !expenseStatus.has(message.expenseId) || expenseStatus.get(message.expenseId) === 'NEEDS_REVIEW').slice(0, 20)
   const today = todayISO()
   const usage = await prisma.expense.groupBy({
     by: ['categoryId'],

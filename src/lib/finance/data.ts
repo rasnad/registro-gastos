@@ -2,6 +2,7 @@ import 'server-only'
 import { prisma } from '@/lib/db'
 import { toCents } from '@/lib/money'
 import { toISODate, todayISO } from '@/lib/period'
+import { countPendingReviews } from '@/lib/finance/reviews'
 import {
   buildOverview,
   statementTotalsFromImports,
@@ -60,7 +61,6 @@ export async function loadFinanceData(
     occurrenceRows,
     goalRows,
     contributionRows,
-    reviewExpenses,
     reviewMessages,
   ] = await Promise.all([
     prisma.statementImport.findMany({where:{userId,status:'IMPORTED'},orderBy:[{createdAt:'desc'},{id:'desc'}]}),
@@ -80,9 +80,9 @@ export async function loadFinanceData(
     prisma.billOccurrence.findMany({ where: { userId } }),
     prisma.savingsGoal.findMany({ where: { userId }, orderBy: [{ priority: 'asc' }, { createdAt: 'asc' }] }),
     prisma.savingsContribution.findMany({ where: { userId }, orderBy: { date: 'desc' } }),
-    prisma.expense.count({ where: { userId, status: 'NEEDS_REVIEW' } }),
-    prisma.processedGmailMessage.count({
+    prisma.processedGmailMessage.findMany({
       where: { connection: { userId }, status: 'NEEDS_REVIEW' },
+      select: { expenseId: true },
     }),
   ])
 
@@ -246,7 +246,7 @@ export async function loadFinanceData(
     contributions,
   }
 
-  const reviewCount = reviewExpenses + reviewMessages
+  const reviewCount = countPendingReviews(expenseRows, reviewMessages)
   const overview = buildOverview(input, {
     months: options.months ?? 6,
     pendingReviewCount: reviewCount,
