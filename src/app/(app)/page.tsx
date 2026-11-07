@@ -23,6 +23,16 @@ export default async function HomePage() {
     usd.availableCents !== 0 ||
     usd.cardFutureCents > 0 ||
     usd.committedCents > 0
+  const hasUsdFinances =
+    data.input.accounts.some((account) => account.currency === 'USD') ||
+    data.input.incomes.some((income) => income.currency === 'USD' && income.isActive)
+  const usdWarnings = hasUsdFinances
+    ? usd.missing
+    : usd.missing.filter(
+        (item) =>
+          item !== 'No hay cuentas con saldo registradas en esta moneda.' &&
+          item !== 'No registraste ingresos para este mes.',
+      )
 
   const noData =
     data.input.accounts.length === 0 &&
@@ -51,13 +61,13 @@ export default async function HomePage() {
         </div>
       ) : null}
 
-      {uyu.missing.length > 0 || (hasUsd && usd.missing.length > 0) ? (
+      {uyu.missing.length > 0 || (hasUsd && usdWarnings.length > 0) ? (
         <Alert tone="warn" title="Faltan datos para una proyección confiable">
           <ul style={{ margin: '4px 0 0', paddingLeft: 16 }}>
             {[
               ...new Set([
                 ...uyu.missing.map((item) => `Pesos: ${item}`),
-                ...(hasUsd ? usd.missing.map((item) => `Dólares: ${item}`) : []),
+                ...(hasUsd ? usdWarnings.map((item) => `Dólares: ${item}`) : []),
               ]),
             ]
               .slice(0, 3)

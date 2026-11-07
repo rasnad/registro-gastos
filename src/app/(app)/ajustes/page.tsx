@@ -91,10 +91,9 @@ export default async function AjustesPage({ searchParams }: { searchParams: Para
         <a href="#ingresos">Ingresos</a>
         <a href="#tarjetas">Tarjetas</a>
         <a href="#categorias">Categorías</a>
-        <a href="#preferencias">Preferencias</a>
+        <a href="#preferencias">Cotización</a>
         <a href="#importaciones">Resúmenes importados</a>
         <a href="#gmail">Conexión con Gmail</a>
-        <a href="#privacidad">Privacidad</a>
       </nav>
 
       <div className="stack">
@@ -380,10 +379,12 @@ export default async function AjustesPage({ searchParams }: { searchParams: Para
           </div>
 
           {rules.length > 0 ? (
-            <div className="form-section">
-              <h3 className="section-title" style={{ marginBottom: 6 }}>
-                Reglas por comercio
-              </h3>
+            <details className="disclosure form-section">
+              <summary>
+                <span>Reglas por comercio ({rules.length})</span>
+                <Icon name="chevron" size={15} />
+              </summary>
+              <div className="disclosure-body">
               <p className="hint" style={{ marginBottom: 8 }}>
                 Se aplican como sugerencia al cargar un gasto. Nunca se asignan sin que lo veas.
               </p>
@@ -406,7 +407,8 @@ export default async function AjustesPage({ searchParams }: { searchParams: Para
                   </div>
                 ))}
               </div>
-            </div>
+              </div>
+            </details>
           ) : null}
         </section>
 
@@ -689,33 +691,6 @@ export default async function AjustesPage({ searchParams }: { searchParams: Para
           )}
         </section>
 
-        <section className="panel settings-section" id="privacidad">
-          <SectionHead title="Privacidad y datos" note="Qué se guarda y qué no" />
-          <div className="stack-sm">
-            <div className="row" style={{ gap: 10, alignItems: 'flex-start' }}>
-              <Icon name="shield" size={17} />
-              <p className="hint" style={{ flex: 1 }}>
-                Todas las rutas requieren sesión. Cada consulta filtra por tu usuario: no hay endpoints públicos con
-                datos financieros. Los tokens de Gmail se guardan cifrados con AES-256-GCM y nunca se envían al
-                navegador.
-              </p>
-            </div>
-            <div className="row" style={{ gap: 10, alignItems: 'flex-start' }}>
-              <Icon name="lock" size={17} />
-              <p className="hint" style={{ flex: 1 }}>
-                No se guardan archivos PDF ni el cuerpo de los correos. De los resúmenes se conserva la huella del
-                archivo y las compras que confirmaste; de Gmail, los campos extraídos y el ID del mensaje.
-              </p>
-            </div>
-            <div className="row" style={{ gap: 10, alignItems: 'flex-start' }}>
-              <Icon name="info" size={17} />
-              <p className="hint" style={{ flex: 1 }}>
-                El contenido de los correos se trata como no confiable: sólo se buscan patrones de texto y nunca se
-                ejecutan instrucciones que aparezcan en un mensaje.
-              </p>
-            </div>
-          </div>
-        </section>
       </div>
     </div>
   )

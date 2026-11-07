@@ -72,6 +72,7 @@ export default async function TarjetasPage() {
           (item) => item.cardId === card.id && item.expenseStatus !== 'DISCARDED',
         )
         const unpaid = installments.filter((item) => !item.isPaid)
+        const unpaidPlans = unpaid.filter((item) => item.count > 1)
 
         const currencies = CURRENCIES.filter((cur) => {
           if (installments.some((item) => item.currency === cur)) return true
@@ -231,7 +232,7 @@ export default async function TarjetasPage() {
 
                       <div className="card-summary-row">
                         <div>
-                          <small>Cuotas futuras</small>
+                          <small>Consumos futuros</small>
                           <b>
                             <Money cents={futureCents} currency={cur} />
                           </b>
@@ -313,7 +314,7 @@ export default async function TarjetasPage() {
                 <section className="panel">
                   <SectionHead
                     title="Próximos resúmenes"
-                    note="Suma de las cuotas pendientes en cada vencimiento"
+                    note="Suma de los consumos pendientes en cada vencimiento"
                   />
                   <div className="table-wrap">
                     <table className="table">
@@ -340,7 +341,7 @@ export default async function TarjetasPage() {
                               <td className="num">
                                 {usd > 0 ? <Money cents={usd} currency="USD" /> : <span className="hint">—</span>}
                               </td>
-                              <td className="num">{items.length}</td>
+                              <td className="num">{items.filter((item) => item.count > 1).length}</td>
                               <td>
                                 {period < current ? (
                                   <Badge tone="danger">Vencido</Badge>
@@ -364,9 +365,9 @@ export default async function TarjetasPage() {
               <SectionHead
                 title="Cuotas pendientes"
                 note="Cada cuota se imputa al resumen que corresponde, no al mes de la compra"
-                action={<span className="count-chip">{unpaid.length} cuotas</span>}
+                action={<span className="count-chip">{unpaidPlans.length} cuotas</span>}
               />
-              {unpaid.length === 0 ? (
+              {unpaidPlans.length === 0 ? (
                 <p className="hint">No hay cuotas pendientes registradas.</p>
               ) : (
                 <div className="table-wrap">
@@ -383,7 +384,7 @@ export default async function TarjetasPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {unpaid
+                      {unpaidPlans
                         .slice()
                         .sort((a, b) => (a.period < b.period ? -1 : a.period > b.period ? 1 : a.number - b.number))
                         .slice(0, 60)
