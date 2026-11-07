@@ -26,9 +26,11 @@ export async function POST(request: Request) {
   try {
     const body = await request.json()
     const data = body?.message?.data
-    if (typeof data !== 'string' || data.length > 4096 || !/^[A-Za-z0-9+/]*={0,2}$/.test(data)) throw new Error('Datos inválidos')
+    if (typeof data !== 'string' || data.length > 4096 || !/^[A-Za-z0-9+/_-]+={0,2}$/.test(data)) throw new Error('Datos inválidos')
     const payload = JSON.parse(Buffer.from(data, 'base64').toString('utf8'))
-    if (typeof payload.emailAddress !== 'string' || payload.emailAddress.length > 254 || !/^[^\s@]+@[^\s@]+$/.test(payload.emailAddress) || typeof payload.historyId !== 'string' || !/^\d+$/.test(payload.historyId)) throw new Error('Datos inválidos')
+    const validHistoryId = (typeof payload.historyId === 'string' && /^\d+$/.test(payload.historyId)) ||
+      (typeof payload.historyId === 'number' && Number.isInteger(payload.historyId) && payload.historyId >= 0)
+    if (typeof payload.emailAddress !== 'string' || payload.emailAddress.length > 254 || !/^[^\s@]+@[^\s@]+$/.test(payload.emailAddress) || !validHistoryId) throw new Error('Datos inválidos')
     emailAddress = payload.emailAddress
   } catch {
     return NextResponse.json({ error: 'Notificación inválida' }, { status: 400 })

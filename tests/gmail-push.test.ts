@@ -46,6 +46,16 @@ describe('notificaciones autenticadas de Gmail', () => {
     expect((await POST(request({ emailAddress: 'not-an-email', historyId: '123' }))).status).toBe(400)
     expect(mocks.findMany).not.toHaveBeenCalled()
   })
+  it('acepta historyId numérico en la notificación de Gmail', async () => {
+    expect((await POST(request({ emailAddress: 'user@example.com', historyId: 12345 }))).status).toBe(200)
+    expect(mocks.sync).toHaveBeenCalledWith('user-1')
+  })
+  it('acepta datos codificados en base64url sin padding', async () => {
+    const data = Buffer.from(JSON.stringify({ emailAddress: 'user@example.com', historyId: '123', extra: 'x\uffff' })).toString('base64url')
+    expect(data).toMatch(/[-_]/)
+    const req = new Request('http://localhost/api/gmail/push', { method:'POST', headers:{authorization:'Bearer valid','content-type':'application/json'}, body:JSON.stringify({message:{data}}) })
+    expect((await POST(req)).status).toBe(200)
+  })
   it('solicita reintento si la sincronización falla y no expone los detalles', async () => {
     mocks.sync.mockResolvedValue({ ok: false })
     expect((await POST(request())).status).toBe(500)
