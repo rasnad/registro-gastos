@@ -463,6 +463,31 @@ export function billsInMonth(
   return result
 }
 
+/** Estado de cada cuenta del período, con importes de la parte personal. */
+export function billMonthlyView(input: EngineInput, period: MonthKey) {
+  const items = billsInMonth(input, period, { includePaid: true }).map(item => {
+    const balance = billObligationBalance(input, item.bill, period, item.occurrence ?? undefined)
+    const cardBalance = item.chargedToCard && item.bill.creditCardId && item.chargePeriod
+      ? cardObligationBalance(input, item.bill.creditCardId, item.chargePeriod, item.bill.currency)
+      : null
+    const paid = item.chargedToCard ? Boolean(cardBalance && cardBalance.totalCents > 0 && cardBalance.status === 'PAID') : item.paid && (balance.totalCents > 0 || item.occurrence?.status === 'PAID')
+    return {
+      ...item,
+      status: paid ? 'PAID' as const : !item.chargedToCard && balance.status === 'PARTIAL' ? 'PARTIAL' as const : 'PENDING' as const,
+      paidCents: item.chargedToCard ? (paid ? item.expectedCents : 0) : applyShare(balance.paidCents, item.bill.sharePercent),
+      remainingCents: item.chargedToCard ? (paid ? 0 : item.expectedCents) : applyShare(balance.remainingCents, item.bill.sharePercent),
+      balance,
+    }
+  }).sort((a, b) => Number(a.status === 'PAID') - Number(b.status === 'PAID') || a.dueDate.localeCompare(b.dueDate) || a.bill.name.localeCompare(b.bill.name, 'es'))
+  return {
+    items,
+    totals: Object.fromEntries((['UYU', 'USD'] as const).map(currency => [currency, {
+      paidCents: sumCents(items.filter(item => item.bill.currency === currency).map(item => item.paidCents)),
+      remainingCents: sumCents(items.filter(item => item.bill.currency === currency).map(item => item.remainingCents)),
+    }])) as Record<CurrencyCode, { paidCents: number; remainingCents: number }>,
+  }
+}
+
 /* ------------------------------------------------------------------ */
 /* Resumen por moneda                                                  */
 /* ------------------------------------------------------------------ */

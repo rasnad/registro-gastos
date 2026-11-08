@@ -8,6 +8,7 @@ import {
   dashboardCommitments,
   billExpectedCents,
   billsInMonth,
+  billMonthlyView,
   buildOverview,
   computeCurrencySummary,
   planGoals,
@@ -796,5 +797,45 @@ describe('evolución de cuentas fijas realmente pagadas', () => {
     input.billOccurrences=[{...occurrence,amountActualCents:null}]
     input.independentPayments=[]
     expect(billComparisonHistory(input).items).toEqual([])
+  })
+})
+
+describe('cuentas del período seleccionado', () => {
+  it('al revertir un pago histórico recupera el débito y conserva el importe de la cuenta', () => {
+    const input=baseInput(); input.incomes=[]
+    input.bills=[{id:'antel',name:'Antel',categoryId:null,currency:'UYU',amountType:'FIXED',amountFixedCents:165000,amountMinCents:null,amountMaxCents:null,sharePercent:50,frequency:'MONTHLY',dueDay:4,paymentSource:'ACCOUNT',accountId:'acc-uyu',creditCardId:null,startDate:'2025-01-01',endDate:null,isActive:true}]
+    input.billOccurrences=[{id:'old',billId:'antel',period:'2025-06',dueDate:'2025-06-04',amountActualCents:165000,amountMinCents:null,amountMaxCents:null,currency:'UYU',status:'PAID',paidAt:'2025-06-10',accountId:'acc-uyu'}]
+    const paidBalance=accountBalanceAt(input.accounts[0],input)
+    input.billOccurrences[0]={...input.billOccurrences[0],status:'PENDING',paidAt:null,accountId:null}
+    expect(accountBalanceAt(input.accounts[0],input)-paidBalance).toBe(82500)
+    expect(billMonthlyView(input,'2025-06').items[0]).toMatchObject({expectedCents:82500,status:'PENDING',remainingCents:82500})
+  })
+  it('ordena por estado y vencimiento, separa monedas y aplica la parte compartida', () => {
+    const input=baseInput()
+    const bill={id:'a',name:'Alquiler',categoryId:null,currency:'UYU' as const,amountType:'FIXED' as const,amountFixedCents:20000,amountMinCents:null,amountMaxCents:null,sharePercent:50,frequency:'MONTHLY',dueDay:2,paymentSource:'ACCOUNT' as const,accountId:null,creditCardId:null,startDate:'2025-01-01',endDate:null,isActive:true}
+    input.bills=[bill,{...bill,id:'b',name:'Luz',sharePercent:100,dueDay:10},{...bill,id:'c',name:'Internet',currency:'USD',sharePercent:100,dueDay:5}]
+    input.independentPayments=[{id:'p',obligationId:'a',obligationKind:'BILL',period:'2025-06',currency:'UYU',amountCents:20000,accountAmountCents:10000,accountId:null,paidAt:'2025-06-10',debitAccount:false}]
+    const result=billMonthlyView(input,'2025-06')
+    expect(result.items.map(item=>item.bill.id)).toEqual(['c','b','a'])
+    expect(result.totals.UYU).toEqual({paidCents:10000,remainingCents:20000})
+    expect(result.totals.USD).toEqual({paidCents:0,remainingCents:20000})
+    expect(billMonthlyView(input,'2025-07').totals.UYU).toEqual({paidCents:0,remainingCents:30000})
+  })
+  it('no marca como pagada una cuenta variable sin importe', () => {
+    const input=baseInput()
+    input.bills=[{id:'a',name:'Luz',categoryId:null,currency:'UYU',amountType:'RANGE',amountFixedCents:null,amountMinCents:null,amountMaxCents:null,sharePercent:100,frequency:'MONTHLY',dueDay:10,paymentSource:'ACCOUNT',accountId:null,creditCardId:null,startDate:'2025-01-01',endDate:null,isActive:true}]
+    expect(billMonthlyView(input,'2025-06').items[0].status).toBe('PENDING')
+  })
+  it('muestra el pago parcial en el mes correcto y respeta el resumen de tarjeta', () => {
+    const input=baseInput()
+    const bill={id:'a',name:'Luz',categoryId:null,currency:'UYU' as const,amountType:'FIXED' as const,amountFixedCents:10000,amountMinCents:null,amountMaxCents:null,sharePercent:100,frequency:'MONTHLY',dueDay:10,paymentSource:'ACCOUNT' as const,accountId:null,creditCardId:null,startDate:'2025-01-01',endDate:null,isActive:true}
+    input.bills=[bill,{...bill,id:'card-bill',name:'Internet',paymentSource:'CREDIT_CARD',creditCardId:'card-1'}]
+    input.independentPayments=[{id:'p',obligationId:'a',obligationKind:'BILL',period:'2025-06',currency:'UYU',amountCents:4000,accountAmountCents:4000,accountId:null,paidAt:'2025-06-10',debitAccount:false}]
+    input.statementTotals=[{cardId:'card-1',period:'2025-06',currency:'UYU',totalCents:10000}]
+    const before=billMonthlyView(input,'2025-06')
+    expect(before.items.find(item=>item.bill.id==='a')).toMatchObject({status:'PARTIAL',paidCents:4000,remainingCents:6000})
+    expect(before.items.find(item=>item.bill.id==='card-bill')?.status).toBe('PENDING')
+    input.cardPayments=[{id:'cp',creditCardId:'card-1',period:'2025-06',currency:'UYU',amountCents:10000,accountAmountCents:10000,paidAt:'2025-06-10',accountId:null}]
+    expect(billMonthlyView(input,'2025-06').items.find(item=>item.bill.id==='card-bill')).toMatchObject({status:'PAID',paidCents:10000,remainingCents:0})
   })
 })

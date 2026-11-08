@@ -7,7 +7,7 @@ export type IconName =
   | 'upload' | 'warning' | 'lock' | 'logout' | 'settings' | 'trash' | 'edit'
   | 'refresh' | 'close' | 'info' | 'bank' | 'coins' | 'sparkles' | 'link' | 'unlink'
   | 'download' | 'spinner' | 'shield' | 'clock' | 'arrowDown' | 'arrowUp'
-  | 'plane' | 'gift' | 'beer' | 'bill'
+  | 'plane' | 'gift' | 'beer' | 'bill' | 'tennis' | 'scale' | 'phone' | 'road' | 'bulb' | 'landmark'
 
 const PATHS: Record<IconName, ReactNode> = {
   home: <><path d="m3 10 9-7 9 7" /><path d="M5 9.5V21h14V9.5" /><path d="M9 21v-7h6v7" /></>,
@@ -59,6 +59,12 @@ const PATHS: Record<IconName, ReactNode> = {
   gift: <><rect x="3" y="8" width="18" height="13" rx="2" /><path d="M3 13h18M12 8v13" /><path d="M12 8c-1.4 0-3-.6-3-2s1-2 2-2c2 0 1 4 1 4Z" /><path d="M12 8c1.4 0 3-.6 3-2s-1-2-2-2c-2 0-1 4-1 4Z" /></>,
   beer: <><path d="M6 8h9v13H6z" /><path d="M15 10h2a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2h-2" /><path d="M6 8V5a1 1 0 0 1 1-1h7a1 1 0 0 1 1 1v3" /><path d="M9 11v6M12 11v6" /></>,
   bill: <><rect x="2" y="6" width="20" height="12" rx="2" /><circle cx="12" cy="12" r="3" /><path d="M6 9v6M18 9v6" /></>,
+  tennis: <><ellipse cx="10" cy="9" rx="5" ry="6.5" transform="rotate(35 10 9)" /><path d="m13.4 13.8 5.1 5.1M17.5 19.8l2.2-2.2M7 5l6 8M5.5 7l6 8M8.2 4.5l6 8M5.5 10l8-5M7 13l8-5" /></>,
+  scale: <><path d="M12 3v17M7 21h10M4 7h16M12 3l-2 4M12 3l2 4" /><path d="m5 7-3 7h6L5 7ZM19 7l-3 7h6l-3-7ZM2 14c0 2 1.2 3 3 3s3-1 3-3M16 14c0 2 1.2 3 3 3s3-1 3-3" /></>,
+  phone: <><path d="M6.6 3.5 9 7.7 7.4 9.3c1.3 2.8 3.5 5 6.3 6.3l1.6-1.6 4.2 2.4-.5 2.5c-.2 1.1-1.2 1.9-2.3 1.7C9.8 19.5 4.5 14.2 3.4 7.3c-.2-1.1.6-2.1 1.7-2.3l1.5-.3Z" /></>,
+  road: <><path d="M8 3 3 21M16 3l5 18M12 3v3M12 10v4M12 18v3" /></>,
+  bulb: <><path d="M8 14c-.7-.8-1.5-1.8-1.5-4a5.5 5.5 0 1 1 11 0c0 2.2-.8 3.2-1.5 4-.6.7-1 1.3-1 2H9c0-.7-.4-1.3-1-2ZM9 19h6M10 21h4" /></>,
+  landmark: <><path d="M3 9 12 4l9 5H3ZM5 10v8M9 10v8M15 10v8M19 10v8M3 19h18M2 21h20" /></>,
 }
 
 export function Icon({

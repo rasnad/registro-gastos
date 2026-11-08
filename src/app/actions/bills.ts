@@ -248,6 +248,20 @@ export async function unpayBillOccurrence(_prev: ActionState, formData: FormData
   return { ok: true }
 }
 
+/** Revierte solo el pago histórico; conserva la obligación y su importe real. */
+export async function deleteLegacyBillPayment(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const user = await requireUser()
+  const id = str(formData, 'id')
+  if (!id) return { error: 'El pago no existe.' }
+  const result = await prisma.billOccurrence.updateMany({
+    where: { id, userId: user.id, status: 'PAID', paidAt: { not: null }, bill: { userId: user.id, paymentSource: 'ACCOUNT' } },
+    data: { status: 'PENDING', paidAt: null, accountId: null },
+  })
+  if (!result.count) return { error: 'El pago no existe o ya fue eliminado.' }
+  revalidateFinance()
+  return { ok: true }
+}
+
 export async function setBillActualAmount(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const user = await requireUser()
   const billId = str(formData, 'billId')

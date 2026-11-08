@@ -5,14 +5,15 @@ import { Money } from '@/components/ui'
 import { CardPaymentForm, MiniForm } from '@/components/forms/other-forms'
 import { deleteCardPayment } from '@/app/actions/cards'
 import { deleteObligationPayment } from '@/app/actions/obligation-payments'
+import { deleteLegacyBillPayment } from '@/app/actions/bills'
 import type { AccountOption } from '@/components/forms/money-forms'
 import { fromCents, toCents } from '@/lib/money'
 
-export function PaymentHistory({ payments, accounts, name, usdRateCents, legacyPayments = [], legacyCardNotes = {} }: {
+export function PaymentHistory({ payments, accounts, name, usdRateCents, legacyPayments = [], legacyCardNotes = {}, defaultOpen = false }: {
   legacyPayments?: IndependentPayment[]; legacyCardNotes?: Record<string, string | null>;
-  payments: ObligationPayment[]; accounts: AccountOption[]; name: string; usdRateCents: number
+  payments: ObligationPayment[]; accounts: AccountOption[]; name: string; usdRateCents: number; defaultOpen?: boolean
 }) {
-  return <details><summary>Historial de pagos ({payments.length + legacyPayments.length})</summary>
+  return <details open={defaultOpen || undefined}><summary>Historial de pagos ({payments.length + legacyPayments.length})</summary>
     <div className="stack-sm">
       {payments.length + legacyPayments.length === 0 ? <p className="hint">Todavía no hay pagos registrados.</p> : null}
       {legacyPayments.map(payment => <div className="import-row" key={payment.id}>
@@ -27,6 +28,9 @@ export function PaymentHistory({ payments, accounts, name, usdRateCents, legacyP
           </Dialog>
           <MiniForm action={deleteCardPayment} hidden={{id:payment.id.replace(/^legacy-card:/,'')}} label="Eliminar pago" confirmMessage="¿Eliminar este pago? Se recalculará el saldo pendiente de la obligación." />
         </div> : null}
+        {payment.obligationKind === 'BILL' && payment.id.startsWith('legacy-bill:') ? <MiniForm
+          action={deleteLegacyBillPayment} hidden={{id:payment.id.replace(/^legacy-bill:/,'')}} label="Eliminar pago"
+          confirmMessage="¿Eliminar este pago histórico? La cuenta y su importe se conservan, y se revierten sus efectos sobre el saldo." /> : null}
       </div>)}
       {payments.map(payment => <div className="import-row" key={payment.id}>
         <div className="between"><strong><Money cents={toCents(payment.amount)} currency={payment.currency} /></strong>

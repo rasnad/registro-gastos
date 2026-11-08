@@ -911,3 +911,49 @@ table.table tbody tr:hover { background: #fcfcfb; }
 .bill-comparison-tooltip small { color:var(--muted); }
 .bill-comparison-point:hover .bill-comparison-tooltip, .bill-comparison-point:focus-visible .bill-comparison-tooltip { display:block; }
 .bill-comparison-name { max-width:150px; text-align:center; padding:8px 4px; font-size:11px; overflow-wrap:anywhere; }
+
+/* Cuentas del período */
+.bill-list-heading { display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; margin-bottom:14px; }
+.bill-list-heading h2 { font-size:16px; font-weight:700; margin:0; }
+.bill-month-selector { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--muted); }
+.bill-month-selector input { border:1px solid var(--line); background:white; border-radius:8px; padding:7px 9px; color:var(--ink); }
+.bill-period-summary { display:flex; flex-wrap:wrap; gap:12px 30px; padding:12px 14px; margin-bottom:12px; background:#f8f7f9; border-radius:10px; }
+.bill-period-currency { display:flex; gap:30px; }
+.bill-period-currency > div { display:flex; flex-direction:column; gap:3px; }
+.bill-period-currency span { color:var(--muted); font-size:11px; }
+.bill-period-currency strong { font-size:15px; font-variant-numeric:tabular-nums; }
+.bill-table-head, .bill-row-summary { display:grid; grid-template-columns:minmax(160px, 2fr) minmax(90px, 1fr) minmax(100px, 1fr) minmax(100px, 1fr); align-items:center; gap:12px; padding-right:185px; }
+.bill-table-head { position:relative; padding-top:8px; padding-bottom:9px; border-bottom:1px solid var(--line); color:var(--muted); font-size:11px; }
+.bill-table-head span:last-child { position:absolute; right:72px; }
+.bill-list-row { position:relative; border-bottom:1px solid var(--line); }
+.bill-list-row:last-child { border-bottom:0; }
+.bill-row-summary { min-height:59px; cursor:pointer; list-style:none; font-size:13px; }
+.bill-row-summary::-webkit-details-marker, .bill-action-menu summary::-webkit-details-marker { display:none; }
+.bill-row-summary:focus-visible, .bill-action-menu summary:focus-visible { outline:2px solid var(--purple-dark); outline-offset:-2px; border-radius:6px; }
+.bill-row-name { display:flex; align-items:center; gap:8px; min-width:0; }
+.bill-row-icon { width:28px; height:28px; flex:0 0 28px; display:inline-flex; align-items:center; justify-content:center; border-radius:8px; background:#f1edf6; color:var(--purple-dark); }
+.bill-row-icon b { font-size:9px; letter-spacing:-.3px; }
+.bill-row-name strong { overflow-wrap:anywhere; }
+.bill-row-chevron { color:var(--muted); font-size:20px; transition:transform .15s; }
+.bill-row-details[open] .bill-row-chevron { transform:rotate(90deg); }
+.bill-row-date { color:var(--muted); }
+.bill-row-amount { font-variant-numeric:tabular-nums; white-space:nowrap; }
+.bill-row-expanded { padding:0 185px 14px 22px; display:flex; flex-direction:column; gap:8px; }
+.bill-row-actions { position:absolute; top:11px; right:0; display:flex; align-items:center; justify-content:flex-end; gap:8px; }
+.bill-action-menu { position:relative; }
+.bill-action-menu > summary { list-style:none; cursor:pointer; padding:4px 8px; border-radius:7px; color:var(--muted); font-size:20px; line-height:1; }
+.bill-action-menu > summary:hover { background:#f4f0f9; }
+.bill-action-popover { position:absolute; z-index:5; right:0; top:100%; min-width:130px; background:white; border:1px solid var(--line); border-radius:9px; padding:5px; box-shadow:0 7px 18px #0002; display:flex; flex-direction:column; }
+.bill-action-popover button { width:100%; justify-content:flex-start; }
+.bill-empty { padding:16px 0; }
+@media (max-width: 700px) {
+  .bill-table-head { display:none; }
+  .bill-row-summary { grid-template-columns:minmax(0, 1fr) auto; gap:5px 10px; padding:12px 0 50px; }
+  .bill-row-name { grid-column:1; }
+  .bill-row-date { grid-column:1; padding-left:56px; }
+  .bill-row-amount { grid-column:2; grid-row:1; }
+  .bill-row-state { grid-column:2; grid-row:2; justify-self:end; }
+  .bill-row-actions { top:auto; bottom:9px; }
+  .bill-row-details[open] + .bill-row-actions { bottom:auto; top:70px; }
+  .bill-row-expanded { padding:0 0 12px 22px; }
+}
