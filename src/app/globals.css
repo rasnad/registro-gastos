@@ -865,3 +865,49 @@ table.table tbody tr:hover { background: #fcfcfb; }
 .tarjetas-toolbar { padding-right: 56px; min-height: 40px; }
 @media (max-width: 1100px) { .app-main:has(.tarjetas-toolbar) .app-header { top: 10px; padding: 0 26px; } }
 @media (max-width: 780px) { .app-main:has(.tarjetas-toolbar) .app-header { top: 6px; padding: 0 16px; } .tarjetas-toolbar { padding-right: 100px; } }
+
+.kpi-popover-amount { display: flex; flex-direction: column; align-items: flex-end; flex-shrink: 0; gap: 2px; }
+.kpi-popover-amount small { color: var(--muted); font-size: 10px; white-space: nowrap; }
+
+.bill-history-currency { display:inline-flex; margin: 0 0 12px; }
+.bill-history-scroll { overflow-x:auto; padding-bottom:8px; }
+.bill-history-bars { display:flex; align-items:stretch; gap:8px; min-width:max-content; }
+.bill-history-month { width:82px; border:1px solid transparent; background:transparent; color:var(--muted); border-radius:10px; padding:7px 5px; display:flex; flex-direction:column; align-items:center; gap:5px; font-size:11px; cursor:pointer; }
+.bill-history-month:hover, .bill-history-month.selected { background:#f4f0f9; border-color:#ded5eb; color:var(--purple-dark); }
+.bill-history-month:focus-visible { outline:2px solid var(--purple-dark); outline-offset:2px; }
+.bill-history-month small { font-size:10px; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.bill-history-bar-area { height:105px; width:100%; display:flex; align-items:flex-end; justify-content:center; border-bottom:1px solid var(--line); }
+.bill-history-bar { width:28px; border-radius:6px 6px 0 0; background:#9c8cb8; }
+.bill-history-month.selected .bill-history-bar { background:var(--purple-dark); }
+.bill-history-detail { margin-top:14px; border-top:1px solid var(--line); padding-top:12px; }
+.bill-history-detail ul { list-style:none; padding:0; margin:8px 0 0; }
+.bill-history-detail li { display:flex; justify-content:space-between; gap:12px; padding:7px 0; border-bottom:1px solid var(--line); font-size:12px; }
+
+.bill-comparison-filters { display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:12px; color:var(--muted); margin:8px 0 14px; }
+.bill-comparison-preset { border:1px solid var(--line); background:#fff; color:var(--purple-dark); border-radius:8px; padding:6px 10px; cursor:pointer; }
+.bill-comparison-preset:hover, .bill-comparison-preset[aria-pressed="true"] { background:#f0e9f6; border-color:#ded5eb; }
+.bill-comparison-rent { display:inline-flex; align-items:center; gap:5px; margin-left:8px; font-size:12px; color:var(--text); cursor:pointer; }
+.bill-comparison-rent input { accent-color:var(--purple-dark); }
+.bill-comparison-legend { display:flex; flex-wrap:wrap; gap:8px 16px; border:0; padding:0; margin:0 0 10px; }
+.bill-comparison-legend legend { font-size:12px; color:var(--muted); margin-bottom:8px; }
+.bill-comparison-legend label { display:flex; align-items:center; gap:5px; font-size:12px; cursor:pointer; }
+.bill-comparison-swatch { width:11px; height:11px; border-radius:50%; display:inline-block; flex-shrink:0; }
+.bill-comparison-status { display:flex; align-items:center; gap:7px; }
+.bill-status-dot { width:10px; height:10px; background:#6f6c76; border:1.5px solid #6f6c76; border-radius:50%; display:inline-block; }
+.bill-status-dot.pending { background:transparent; margin-left:10px; }
+.bill-comparison-scroll { overflow-x:auto; padding:72px 0 4px; }
+.bill-comparison-layout { display:flex; min-width:max-content; }
+.bill-comparison-axis { height:190px; display:flex; flex-direction:column; justify-content:space-between; align-items:flex-end; gap:5px; padding-right:10px; font-size:10px; color:var(--muted); font-variant-numeric:tabular-nums; }
+.bill-comparison-groups { display:flex; flex:1; border-left:1px solid var(--line); }
+.bill-comparison-group { flex:1; min-width:120px; display:flex; flex-direction:column; align-items:center; }
+.bill-comparison-plot { height:190px; width:100%; display:flex; align-items:stretch; justify-content:center; gap:3px; border-bottom:1px solid var(--line); background:repeating-linear-gradient(to bottom, var(--line) 0, var(--line) 1px, transparent 1px, transparent 25%); }
+.bill-comparison-point-slot { position:relative; width:14px; flex:0 0 14px; }
+.bill-comparison-point { position:absolute; bottom:0; left:50%; width:13px; height:13px; transform:translate(-50%, 50%); border:2px solid currentColor; border-radius:50%; background:currentColor; padding:0; cursor:pointer; }
+.bill-comparison-point.pending { background:#fff; }
+.bill-comparison-point:focus-visible { outline:2px solid var(--purple-dark); outline-offset:3px; }
+.bill-comparison-tooltip { display:none; position:absolute; z-index:4; left:50%; bottom:20px; transform:translateX(-50%); min-width:150px; padding:9px 12px; border:1px solid var(--line); border-radius:9px; background:#fff; color:var(--text); box-shadow:0 5px 18px #0002; text-align:left; white-space:nowrap; font-size:12px; pointer-events:none; }
+.bill-comparison-tooltip strong, .bill-comparison-tooltip span, .bill-comparison-tooltip small { display:block; }
+.bill-comparison-tooltip span { margin:4px 0; font-size:15px; font-weight:700; }
+.bill-comparison-tooltip small { color:var(--muted); }
+.bill-comparison-point:hover .bill-comparison-tooltip, .bill-comparison-point:focus-visible .bill-comparison-tooltip { display:block; }
+.bill-comparison-name { max-width:150px; text-align:center; padding:8px 4px; font-size:11px; overflow-wrap:anywhere; }

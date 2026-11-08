@@ -1,5 +1,6 @@
+import { BillHistoryChart } from '@/components/finance/bill-history-chart'
 import { PaymentHistory } from '@/components/finance/payment-history'
-import { billObligationBalance, cardObligationBalance, applyShare, obligationPayments } from '@/lib/finance/engine'
+import { billObligationBalance, cardObligationBalance, applyShare, obligationPayments, billComparisonHistory } from '@/lib/finance/engine'
 import type { Metadata } from 'next'
 import { requireUser } from '@/lib/auth'
 import { prisma } from '@/lib/db'
@@ -58,6 +59,7 @@ export default async function CuentasPage() {
         name: item.bill.name,
         amountCents: item.expectedCents,
         pendingCents: applyShare(billObligationBalance(data.input,item.bill,month,item.occurrence ?? undefined).remainingCents,item.bill.sharePercent),
+        paidCents: applyShare(billObligationBalance(data.input,item.bill,month,item.occurrence ?? undefined).paidCents,item.bill.sharePercent),
         currency: item.bill.currency as CurrencyCode,
         frequency: item.bill.frequency,
         sharePercent: item.bill.sharePercent,
@@ -72,6 +74,7 @@ export default async function CuentasPage() {
         frequency: item.bill.frequency,
         sharePercent: item.bill.sharePercent,
         pendingCents: item.expectedCents,
+        paidCents: 0,
         chargedToCard: true,
         estimated: !item.exact,
         paid: cardObligationBalance(data.input,item.bill.creditCardId!,month,item.bill.currency).status === 'PAID',
@@ -133,6 +136,8 @@ export default async function CuentasPage() {
       </div>
 
       <MonthKpis months={monthSummaries} />
+
+      <BillHistoryChart history={billComparisonHistory(data.input)} current={current} />
 
       <section className="panel">
         <SectionHead title="Tus cuentas" note="Estado del mes en curso" />

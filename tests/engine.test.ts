@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   accountBalanceAt,
+  paidBillHistory,
+  billComparisonHistory,
   upcomingPayments,
   unassignedIncomeByCurrency,
   dashboardCommitments,
@@ -742,5 +744,57 @@ describe('proyección consolidada en pesos', () => {
     expect(projectMonthsInPesos(input,4100,1,{includeSavings:true})[0].savingsCents).toBe(41000)
     expect(projectMonthsInPesos(input,4100,1,{includeSavings:false})[0].savingsCents).toBe(0)
     expect(()=>projectMonthsInPesos(input,0,1)).toThrow(RangeError)
+  })
+})
+
+
+describe('evolución de cuentas fijas realmente pagadas', () => {
+  function makeInput() {
+    const input = baseInput(); input.incomes=[]
+    input.bills.push({id:'bill-history',name:'Luz',categoryId:null,currency:'UYU',amountType:'RANGE',amountFixedCents:null,amountMinCents:180000,amountMaxCents:280000,sharePercent:50,frequency:'MONTHLY',dueDay:10,paymentSource:'ACCOUNT',accountId:'acc-uyu',creditCardId:null,startDate:'2025-01-01',endDate:null,isActive:true})
+    return input
+  }
+  it('incluye cuentas históricas pagadas por importe real y parte personal', () => {
+    const input=makeInput();input.billOccurrences.push({id:'legacy',billId:'bill-history',period:'2025-06',dueDate:'2025-06-10',amountActualCents:185000,amountMinCents:null,amountMaxCents:null,currency:'UYU',status:'PAID',paidAt:'2025-06-10',accountId:'acc-uyu'})
+    expect(paidBillHistory(input).items).toEqual([{billId:'bill-history',name:'Luz',currency:'UYU',period:'2025-06',amountCents:92500}])
+  })
+  it('omite estimaciones, pagos parciales y pagos futuros', () => {
+    const input=makeInput();input.independentPayments.push({id:'p',obligationId:'bill-history',obligationKind:'BILL',period:'2025-06',currency:'UYU',amountCents:185000,paidAt:'2025-06-20',accountId:'acc-uyu',accountAmountCents:92500,debitAccount:true})
+    expect(paidBillHistory(input).items).toEqual([])
+    input.billOccurrences.push({id:'real',billId:'bill-history',period:'2025-06',dueDate:'2025-06-10',amountActualCents:185000,amountMinCents:null,amountMaxCents:null,currency:'UYU',status:'PENDING',paidAt:null,accountId:null})
+    expect(paidBillHistory(input).items[0].amountCents).toBe(92500)
+    input.independentPayments[0].paidAt='2025-06-21'
+    expect(paidBillHistory(input).items).toEqual([])
+  })
+  it('suma pagos independientes de una obligación una sola vez y separa moneda y período', () => {
+    const input=makeInput();const p={id:'p1',obligationId:'bill-history',obligationKind:'BILL' as const,period:'2025-06',currency:'UYU' as const,amountCents:115000,paidAt:'2025-06-10',accountId:null,accountAmountCents:null,debitAccount:true}
+    input.independentPayments=[p,p,{...p,id:'p2'}]
+    expect(paidBillHistory(input).items[0]).toMatchObject({period:'2025-06',currency:'UYU',amountCents:115000})
+  })
+  it('excluye pagos históricos y nuevos ambiguos de la misma cuenta y mes', () => {
+    const input=makeInput();input.billOccurrences.push({id:'legacy',billId:'bill-history',period:'2025-06',dueDate:'2025-06-10',amountActualCents:185000,amountMinCents:null,amountMaxCents:null,currency:'UYU',status:'PAID',paidAt:'2025-06-10',accountId:'acc-uyu'})
+    input.independentPayments=[{id:'p',obligationId:'bill-history',obligationKind:'BILL',period:'2025-06',currency:'UYU',amountCents:185000,paidAt:'2025-06-10',accountId:'acc-uyu',accountAmountCents:92500,debitAccount:true}]
+    expect(paidBillHistory(input)).toEqual({items:[],ambiguousCount:1})
+  })
+  it('incluye cuenta con tarjeta solamente cuando el resumen está pagado', () => {
+    const input=makeInput(); input.bills[0]={...input.bills[0],paymentSource:'CREDIT_CARD',creditCardId:'card-1'}
+    input.billOccurrences.push({id:'card-bill',billId:'bill-history',period:'2025-06',dueDate:'2025-06-10',amountActualCents:185000,amountMinCents:null,amountMaxCents:null,currency:'UYU',status:'PAID',paidAt:'2025-06-10',accountId:null})
+    const chargePeriod=statementPeriodForPurchase('2025-06-10',18,24)
+    input.statementTotals=[{cardId:'card-1',period:chargePeriod,currency:'UYU',totalCents:92500}]
+    expect(paidBillHistory(input).items).toHaveLength(0)
+    input.cardPayments.push({id:'card-p',creditCardId:'card-1',period:chargePeriod,amountCents:92500,currency:'UYU',accountAmountCents:92500,paidAt:'2025-06-20',accountId:'acc-uyu'})
+    expect(paidBillHistory(input).items[0].amountCents).toBe(92500)
+  })
+  it('compara pendientes con importe real y pagos completos, sin mostrar estimaciones', () => {
+    const input=makeInput()
+    const occurrence={id:'real',billId:'bill-history',period:'2025-06',dueDate:'2025-06-10',amountActualCents:185000,amountMinCents:null,amountMaxCents:null,currency:'UYU' as const,status:'PENDING' as const,paidAt:null,accountId:null}
+    input.billOccurrences=[occurrence]
+    input.independentPayments=[{id:'partial',obligationId:'bill-history',obligationKind:'BILL',period:'2025-06',currency:'UYU',amountCents:50000,paidAt:'2025-06-10',accountId:'acc-uyu',accountAmountCents:25000,debitAccount:true}]
+    expect(billComparisonHistory(input).items).toMatchObject([{period:'2025-06',amountCents:92500,status:'PENDING'}])
+    input.independentPayments.push({...input.independentPayments[0],id:'rest',amountCents:135000})
+    expect(billComparisonHistory(input).items).toMatchObject([{period:'2025-06',amountCents:92500,status:'PAID'}])
+    input.billOccurrences=[{...occurrence,amountActualCents:null}]
+    input.independentPayments=[]
+    expect(billComparisonHistory(input).items).toEqual([])
   })
 })

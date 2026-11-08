@@ -9,6 +9,7 @@ export type MonthBillItem = {
   name: string
   amountCents: number
   pendingCents: number
+  paidCents: number
   currency: CurrencyCode
   frequency: string
   sharePercent: number
@@ -96,7 +97,12 @@ export function MonthKpis({ months }: { months: MonthKpi[] }) {
                           {item.sharePercent < 100 ? <em> · {item.sharePercent}%</em> : null}
                           {item.estimated ? <em> · estimado</em> : null}
                         </span>
-                        <Money cents={item.amountCents} currency={item.currency} />
+                        <span className="kpi-popover-amount">
+                          <Money cents={item.amountCents} currency={item.currency} />
+                          {!item.paid && !item.chargedToCard && item.paidCents > 0 ? (
+                            <small>Pagado: <Money cents={item.paidCents} currency={item.currency} /> · Pendiente: <Money cents={item.pendingCents} currency={item.currency} /></small>
+                          ) : null}
+                        </span>
                       </li>
                     ))}
                   </ul>

@@ -298,6 +298,62 @@ export function unassignedIncomeByCurrency(input: EngineInput): Record<CurrencyC
   }
 }
 
+export type PaidBillHistoryItem = { billId: string; name: string; currency: CurrencyCode; period: string; amountCents: number }
+
+/** Histórico de obligaciones efectivamente saldadas, sin incorporar importes estimados como gastos. */
+export function paidBillHistory(input: EngineInput): { items: PaidBillHistoryItem[]; ambiguousCount: number } {
+  const payments = obligationPayments(input).filter(p => p.obligationKind === 'BILL' && p.period && p.currency && p.paidAt <= input.today && p.period <= input.today.slice(0,7))
+  const keys = new Set(payments.map(p => `${p.obligationId}|${p.period}|${p.currency}`))
+  const items: PaidBillHistoryItem[] = []
+  let ambiguousCount = 0
+  for (const key of keys) {
+    const [billId, period, currency] = key.split('|')
+    const bill = input.bills.find(b => b.id === billId && b.currency === currency && b.paymentSource === 'ACCOUNT')
+    if (!bill) continue
+    const rows = payments.filter(p => p.obligationId === billId && p.period === period && p.currency === currency)
+    const legacy = rows.some(p => p.id.startsWith('legacy-bill:'))
+    const modern = rows.some(p => !p.id.startsWith('legacy-bill:'))
+    // Sin vínculo entre las fuentes no se puede saber si representan el mismo pago.
+    if (legacy && modern) { ambiguousCount++; continue }
+    const occurrence = input.billOccurrences.find(o => o.billId === bill.id && o.period === period)
+    const balance = billObligationBalance(input,bill,period,occurrence)
+    if (!legacy && balance.status !== 'PAID') continue
+    const amountCents = applyShare(sumCents(rows.map(p => p.amountCents)),bill.sharePercent)
+    if (amountCents <= 0) continue
+    items.push({billId,name:bill.name,currency:bill.currency,period,amountCents})
+  }
+  // Cuentas a tarjeta solo cuando existe importe real y su resumen está saldado.
+  for (const occurrence of input.billOccurrences) {
+    const bill = input.bills.find(b => b.id === occurrence.billId && b.paymentSource === 'CREDIT_CARD')
+    if (!bill?.creditCardId || occurrence.status !== 'PAID' || !occurrence.paidAt || occurrence.paidAt > input.today || occurrence.period > input.today.slice(0,7) || occurrence.amountActualCents == null) continue
+    const chargePeriod = billChargePeriod(bill,input.cards,occurrence.dueDate)
+    const cardBalance = cardObligationBalance(input,bill.creditCardId,chargePeriod,bill.currency)
+    if (cardBalance.totalCents <= 0 || cardBalance.status !== 'PAID') continue
+    const amountCents = applyShare(occurrence.amountActualCents,bill.sharePercent)
+    if (amountCents > 0) items.push({billId:bill.id,name:bill.name,currency:bill.currency,period:occurrence.period,amountCents})
+  }
+  return {items:items.sort((a,b) => a.period.localeCompare(b.period) || b.amountCents-a.amountCents || a.name.localeCompare(b.name)),ambiguousCount}
+}
+
+/** Comparación de importes reales: las obligaciones pendientes solo si tienen importe real registrado. */
+export function billComparisonHistory(input: EngineInput) {
+  const history = paidBillHistory(input)
+  const items: Array<PaidBillHistoryItem & { status: 'PAID' | 'PENDING' }> = history.items.map(item => ({ ...item, status: 'PAID' }))
+  const payments = obligationPayments(input).filter(p => p.obligationKind === 'BILL' && p.paidAt <= input.today)
+  for (const occurrence of input.billOccurrences) {
+    if (occurrence.period > currentOf(input) || occurrence.amountActualCents == null || occurrence.amountActualCents <= 0) continue
+    const bill = input.bills.find(b => b.id === occurrence.billId && b.currency === occurrence.currency)
+    if (!bill || items.some(item => item.billId === bill.id && item.period === occurrence.period && item.currency === bill.currency)) continue
+    const rows = payments.filter(p => p.obligationId === bill.id && p.period === occurrence.period && p.currency === bill.currency)
+    if (rows.some(p => p.id.startsWith('legacy-bill:')) && rows.some(p => !p.id.startsWith('legacy-bill:'))) continue
+    // Un pago histórico sin fecha no permite determinar su estado real.
+    if (bill.paymentSource === 'ACCOUNT' && occurrence.status === 'PAID' && !occurrence.paidAt) continue
+    const amountCents = applyShare(occurrence.amountActualCents, bill.sharePercent)
+    if (amountCents > 0) items.push({ billId: bill.id, name: bill.name, currency: bill.currency, period: occurrence.period, amountCents, status: 'PENDING' })
+  }
+  return { items, ambiguousCount: history.ambiguousCount }
+}
+
 export function accountBalanceAt(account: AccountSnapshot, input: EngineInput, asOf: ISODate = input.today): number {
   return accountBalanceBreakdown(account,input,asOf).balanceCents
 }
