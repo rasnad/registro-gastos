@@ -137,11 +137,7 @@ export default async function CuentasPage({ searchParams }: { searchParams: Prom
 
   return (
     <div className="stack">
-      <div className="between" style={{ flexWrap: 'wrap' }}>
-        <p className="hint" style={{ maxWidth: 640 }}>
-          Las cuentas con importe variable se proyectan como rango. Si se pagan con tarjeta, se imputan al resumen y
-          no se descuentan dos veces.
-        </p>
+      <div className="row" style={{ justifyContent: 'flex-end' }}>
         <Dialog label="Nueva cuenta fija" icon="plus" buttonClassName="secondary-button" title="Nueva cuenta fija">
           <BillForm accounts={options.accounts} cards={options.cards} categories={options.categories} today={today} />
         </Dialog>
