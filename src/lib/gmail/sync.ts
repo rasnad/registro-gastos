@@ -1,7 +1,7 @@
 import 'server-only'
 import { prisma } from '@/lib/db'
 import { fromCents } from '@/lib/money'
-import { buildDedupeKey, findDuplicates } from '@/lib/finance/dedupe'
+import { buildDedupeKey, findDuplicates, normalizeMerchant } from '@/lib/finance/dedupe'
 import {
   dateInMonth,
   monthKeyOf,
@@ -76,6 +76,11 @@ export async function syncGmailForUser(userId: string): Promise<SyncResult> {
 
     const cards = await prisma.creditCard.findMany({ where: { userId, isActive: true } })
     const accounts = await prisma.account.findMany({ where: { userId, isActive: true } })
+    const merchantRules = await prisma.merchantRule.findMany({
+      where: { userId, category: { userId, isActive: true } },
+      select: { pattern: true, categoryId: true },
+    })
+    const categoriesByMerchant = new Map(merchantRules.map(({ pattern, categoryId }) => [pattern, categoryId]))
 
     const existingRows = await prisma.expense.findMany({
       where: { userId, status: { not: 'DISCARDED' } },
@@ -241,6 +246,8 @@ export async function syncGmailForUser(userId: string): Promise<SyncResult> {
           }
 
           const merchant = parsed.merchant ?? 'Consumo sin identificar'
+          const merchantPattern = parsed.merchant ? normalizeMerchant(parsed.merchant) : ''
+          const categoryId = merchantPattern ? categoriesByMerchant.get(merchantPattern) ?? null : null
           const purchaseDate = parsed.purchaseDate ?? receivedAt ?? todayISO()
           const currency = parsed.currency
           const source = parsed.kind === 'CREDIT' ? 'CREDIT_CARD' : 'ACCOUNT'
@@ -300,6 +307,7 @@ export async function syncGmailForUser(userId: string): Promise<SyncResult> {
                 userId,
                 date: new Date(`${purchaseDate}T00:00:00.000Z`),
                 merchant,
+                categoryId,
                 description: parsed.installments ? `${parsed.installments} cuotas` : null,
                 amount: fromCents(parsed.amountCents!),
                 currency,

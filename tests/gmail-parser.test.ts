@@ -23,6 +23,28 @@ describe('asunto y moneda', () => {
 })
 
 describe('extracción de avisos de consumo', () => {
+  it.each([' ', '\n'])('extrae el local de un aviso de débito con separador %j', (separator) => {
+    const parsed = parseConsumptionEmail({
+      subject: DEBIT_SUBJECT,
+      receivedAt: '2025-06-20',
+      text: `Se aprobo un consumo de su tarjeta Visa terminada en 1234 . Realizado en CAFÉ EJEMPLO${separator}Monto: 181.97 Pesos.`,
+    })
+
+    expect(parsed.merchant).toBe('CAFÉ EJEMPLO')
+    expect(parsed.amountCents).toBe(18197)
+    expect(parsed.currency).toBe('UYU')
+  })
+
+  it.each([' ', '\n'])('marca revisión si el aviso de débito trae el monto sin el comercio (%j)', (separator) => {
+    const parsed = parseConsumptionEmail({
+      subject: DEBIT_SUBJECT,
+      text: `Realizado en${separator}Monto: 181.97 Pesos.`,
+    })
+
+    expect(parsed.merchant).toBeNull()
+    expect(parsed.missing).toContain('No se pudo extraer el comercio.')
+  })
+
   it('extrae comercio, importe, fecha, tarjeta y cuotas cuando están presentes', () => {
     const parsed = parseConsumptionEmail({
       subject: CREDIT_SUBJECT,

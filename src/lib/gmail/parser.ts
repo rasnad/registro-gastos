@@ -78,9 +78,14 @@ function findAmount(text: string): { cents: number; label: boolean } | null {
   return { cents: Math.max(...candidates), label: false }
 }
 
-function findMerchant(text: string): string | null {
+function findMerchant(text: string, kind: CardKind | null): string | null {
+  if (kind === 'DEBIT') {
+    const debit = /\brealizad[oa]\s+en\b([^\r\n]*?)\s+(?:monto|importe)\s*:/i.exec(text)
+    const merchant = debit?.[1].trim().replace(/\s{2,}/g, ' ')
+    if (merchant && merchant.length <= 200) return merchant
+  }
   const labeled =
-    /(?:comercio|establecimiento|descripci[oó]n|detalle)\s*[:=]\s*([^\r\n]{3,60})/i.exec(text) ??
+    /(?:comercio|establecimiento|concepto|descripci[oó]n|detalle)\s*[:=]\s*([^\r\n]{3,60})/i.exec(text) ??
     /(?:compra|consumo)\s+en\s+([^\r\n.,;]{3,60})/i.exec(text)
   if (labeled) {
     const value = labeled[1].replace(/\s{2,}/g, ' ').trim().replace(/[.,;:]$/, '')
@@ -156,7 +161,7 @@ export function parseConsumptionEmail(input: {
 
   const amount = findAmount(text)
   const currency = detectCurrency(text)
-  const merchant = findMerchant(text)
+  const merchant = findMerchant(text, kind)
   const date = findDate(text)
   const installments = findInstallments(text)
   const cardLast4 = findLast4(text)
