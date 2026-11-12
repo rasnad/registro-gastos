@@ -1,5 +1,10 @@
 # Registro de gastos
 
+La aplicación web también se puede instalar gratis en iPhone como PWA desde Safari
+(Compartir → Agregar a pantalla de inicio). Usa la misma app y los mismos datos del servidor;
+los despliegues web se reflejan al volver a abrirla o recargarla. La adaptación nativa experimental
+vive en `mobile/`; su arquitectura está en la [guía móvil](docs/mobile.md).
+
 Aplicación web personal para entender la situación financiera actual y los próximos meses: gastos
 diarios, tarjetas de crédito y cuotas, cuentas fijas y variables, objetivos de ahorro y proyección
 mensual. Pesos uruguayos y dólares **por separado**, sin conversiones automáticas.

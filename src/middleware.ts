@@ -16,10 +16,15 @@ const PUBLIC_PATHS = [
   '/api/health',
   '/manifest.webmanifest',
   '/icon.svg',
+  '/apple-icon',
 ]
 
 export async function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl
+
+  // La API nativa valida tokens opacos revocables en cada Route Handler (Node).
+  // Una cookie web nunca autoriza solicitudes a esta API.
+  if (pathname.startsWith('/api/mobile/v1/')) return NextResponse.next()
 
   if (PUBLIC_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`))) {
     return NextResponse.next()
@@ -41,5 +46,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|icon.svg|manifest.webmanifest).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|icon.svg|apple-icon|manifest.webmanifest).*)'],
 }

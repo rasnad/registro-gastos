@@ -130,6 +130,40 @@ model User {
   statementImports StatementImport[]
   gmailConnection  GmailConnection?
   syncLogs         SyncLog[]
+  mobileSessions   MobileSession[]
+  mobileRequests   MobileRequest[]
+}
+
+// Sesiones nativas independientes de las cookies web. Sólo hashes de tokens.
+model MobileSession {
+  id               String   @id @default(cuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessHash       String   @unique
+  refreshHash      String   @unique
+  accessExpiresAt  DateTime
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  createdAt        DateTime @default(now())
+  @@index([userId])
+}
+
+// Una clave por intento lógico. Una operación ambigua nunca se vuelve a ejecutar.
+model MobileRequest {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  key         String
+  fingerprint String
+  result      Json?
+  createdAt   DateTime @default(now())
+  @@unique([userId, key])
+}
+
+model MobileLoginLimit {
+  key      String @id
+  attempts Int
+  expiresAt DateTime
 }
 
 model Account {

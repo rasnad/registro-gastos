@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Icon, LogoMark, type IconName } from '@/components/icons'
 import type { ReactNode } from 'react'
+import { PwaInstallPrompt } from '@/components/pwa-install-prompt'
 
 const MAIN_NAV: Array<{ href: string; label: string; icon: IconName }> = [
   { href: '/', label: 'Inicio', icon: 'home' },
@@ -120,7 +121,7 @@ export function AppShell({
           </div>
         </header>
 
-        <div className="content">{children}</div>
+        <div className="content"><PwaInstallPrompt />{children}</div>
       </main>
 
       <nav className="bottom-nav" aria-label="Navegación principal">
@@ -142,10 +143,18 @@ export function AppShell({
           <Icon name="card" size={20} />
           <span>Tarjetas</span>
         </Link>
-        <Link href="/proyeccion" className={isActive('/proyeccion') ? 'active' : ''}>
-          <Icon name="chart" size={20} />
-          <span>Proyección</span>
+        <Link href="/cuentas" className={isActive('/cuentas') ? 'active' : ''}>
+          <Icon name="receipt" size={20} />
+          <span>Cuentas</span>
         </Link>
+        <details className={`mobile-more ${['/proyeccion', '/ahorro', '/ajustes'].some(isActive) ? 'is-active' : ''}`}>
+          <summary aria-label="Más secciones" aria-current={['/proyeccion', '/ahorro', '/ajustes'].some(isActive) ? 'page' : undefined}><span aria-hidden="true">···</span><span>Más</span></summary>
+          <div className="mobile-more-menu">
+            <Link href="/proyeccion" aria-current={isActive('/proyeccion') ? 'page' : undefined} onClick={(event) => event.currentTarget.closest('details')?.removeAttribute('open')}><Icon name="chart" size={18} /> Proyección</Link>
+            <Link href="/ahorro" aria-current={isActive('/ahorro') ? 'page' : undefined} onClick={(event) => event.currentTarget.closest('details')?.removeAttribute('open')}><Icon name="goal" size={18} /> Ahorro</Link>
+            <Link href="/ajustes" aria-current={isActive('/ajustes') ? 'page' : undefined} onClick={(event) => event.currentTarget.closest('details')?.removeAttribute('open')}><Icon name="settings" size={18} /> Ajustes</Link>
+          </div>
+        </details>
       </nav>
     </div>
   )
