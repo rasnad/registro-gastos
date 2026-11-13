@@ -4,7 +4,6 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Icon, LogoMark, type IconName } from '@/components/icons'
 import type { ReactNode } from 'react'
-import { PwaInstallPrompt } from '@/components/pwa-install-prompt'
 
 const MAIN_NAV: Array<{ href: string; label: string; icon: IconName }> = [
   { href: '/', label: 'Inicio', icon: 'home' },
@@ -121,7 +120,7 @@ export function AppShell({
           </div>
         </header>
 
-        <div className="content"><PwaInstallPrompt />{children}</div>
+        <div className="content">{children}</div>
       </main>
 
       <nav className="bottom-nav" aria-label="Navegación principal">
@@ -133,11 +132,10 @@ export function AppShell({
           <Icon name="movement" size={20} />
           <span>Movimientos</span>
         </Link>
-        <Link href="/movimientos?nuevo=1" className="mobile-add">
+        <Link href="/movimientos?nuevo=1" className="mobile-add" title="Nuevo movimiento" aria-label="Nuevo movimiento">
           <span>
             <Icon name="plus" size={22} />
           </span>
-          <span>Nuevo</span>
         </Link>
         <Link href="/tarjetas" className={isActive('/tarjetas') ? 'active' : ''}>
           <Icon name="card" size={20} />
@@ -153,6 +151,14 @@ export function AppShell({
             <Link href="/proyeccion" aria-current={isActive('/proyeccion') ? 'page' : undefined} onClick={(event) => event.currentTarget.closest('details')?.removeAttribute('open')}><Icon name="chart" size={18} /> Proyección</Link>
             <Link href="/ahorro" aria-current={isActive('/ahorro') ? 'page' : undefined} onClick={(event) => event.currentTarget.closest('details')?.removeAttribute('open')}><Icon name="goal" size={18} /> Ahorro</Link>
             <Link href="/ajustes" aria-current={isActive('/ajustes') ? 'page' : undefined} onClick={(event) => event.currentTarget.closest('details')?.removeAttribute('open')}><Icon name="settings" size={18} /> Ajustes</Link>
+            <div className="mobile-more-divider" />
+            <div className="mobile-more-profile">
+              <span className="avatar">{initials(user.name)}</span>
+              <span className="mobile-more-user"><strong>{user.name}</strong><small>{user.email}</small></span>
+            </div>
+            <form action="/api/auth/logout" method="post">
+              <button type="submit" className="mobile-more-logout"><Icon name="logout" size={17} /> Cerrar sesión</button>
+            </form>
           </div>
         </details>
       </nav>

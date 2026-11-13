@@ -690,22 +690,23 @@ table.table tbody tr:hover { background: #fcfcfb; }
   * { transition: none !important; animation: none !important; }
 }
 
-/* Instalación PWA y navegación cómoda en el iPhone. */
-.pwa-install-card { display:flex; align-items:center; gap:12px; position:relative; margin:0 0 14px; padding:13px 44px 13px 14px; border:1px solid #e5dfed; border-radius:15px; background:linear-gradient(110deg,#fff 5%,#f6f2fa 100%); box-shadow:0 2px 8px rgba(49,39,66,.04); }
-.pwa-install-icon { width:36px; height:36px; flex:none; display:grid; place-items:center; border-radius:11px; background:var(--purple-dark); color:#fff; font-size:23px; font-weight:700; }
-.pwa-install-copy { min-width:0; flex:1; }
-.pwa-install-copy strong { display:block; color:var(--ink); font-size:13px; }
-.pwa-install-copy p { margin-top:2px; color:var(--muted); font-size:11.5px; line-height:1.4; }
-.pwa-install-action { min-height:36px; padding:0 11px; border:0; border-radius:9px; background:var(--purple-dark); color:#fff; font-size:12px; font-weight:650; }
-.pwa-install-close { position:absolute; top:5px; right:6px; width:30px; height:30px; border:0; border-radius:8px; background:transparent; color:var(--muted); font-size:22px; }
+/* Navegación y perfil accesibles desde el menú móvil. */
 .mobile-more { position:relative; display:flex; min-width:54px; justify-content:center; }
 .mobile-more > summary { list-style:none; cursor:pointer; display:flex; min-width:54px; flex-direction:column; align-items:center; gap:0; color:#9a969f; font-size:9.5px; }
 .mobile-more > summary::-webkit-details-marker { display:none; }
 .mobile-more > summary > span:first-child { height:22px; font-size:22px; line-height:15px; font-weight:700; letter-spacing:1px; }
 .mobile-more[open] > summary, .mobile-more.is-active > summary { color:var(--purple-dark); font-weight:700; }
-.mobile-more-menu { position:absolute; right:0; bottom:calc(100% + 15px); min-width:180px; padding:6px; display:flex; flex-direction:column; gap:2px; border:1px solid var(--line); border-radius:14px; background:#fff; box-shadow:0 8px 28px rgba(36,29,46,.16); }
+.mobile-more-menu { position:absolute; right:0; bottom:calc(100% + 15px); min-width:220px; max-width:calc(100vw - 24px); padding:6px; display:flex; flex-direction:column; gap:2px; border:1px solid var(--line); border-radius:14px; background:#fff; box-shadow:0 8px 28px rgba(36,29,46,.16); }
 .mobile-more-menu a { min-height:44px; display:flex; flex-direction:row; align-items:center; gap:10px; padding:0 12px; border-radius:9px; color:var(--ink); font-size:13px; }
 .mobile-more-menu a:hover, .mobile-more-menu a[aria-current='page'] { background:var(--purple-soft); text-decoration:none; color:var(--purple-dark); }
+.mobile-more-divider { height:1px; margin:5px 6px; background:var(--line); }
+.mobile-more-profile { min-height:48px; display:flex; align-items:center; gap:10px; padding:3px 8px; }
+.mobile-more-user { min-width:0; display:flex; flex-direction:column; gap:2px; }
+.mobile-more-user strong, .mobile-more-user small { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.mobile-more-user strong { color:var(--ink); font-size:12px; }
+.mobile-more-user small { color:var(--muted); font-size:10px; }
+.mobile-more-menu .mobile-more-logout { width:100%; min-height:44px; display:flex; flex-direction:row; align-items:center; justify-content:flex-start; gap:10px; padding:0 12px; border:0; border-radius:9px; background:transparent; color:var(--ink); font-size:13px; }
+.mobile-more-menu .mobile-more-logout:hover { background:#fbefed; color:var(--danger); }
 
 @media (max-width:780px) {
   html, body { min-height:100%; overscroll-behavior-y:contain; }
@@ -719,7 +720,9 @@ table.table tbody tr:hover { background: #fcfcfb; }
   .bottom-nav .mobile-add span:first-child { width:38px; height:38px; min-height:38px; }
   .input, .select, .textarea { min-height:44px; font-size:16px; scroll-margin-bottom:160px; }
   .table-wrap, .bill-history-scroll, .bill-comparison-scroll { overscroll-behavior-x:contain; -webkit-overflow-scrolling:touch; }
-  .pwa-install-card { margin-bottom:10px; }
+  .app-header { display:none; }
+  .bottom-nav .mobile-add span:first-child { margin-top:0; }
+  .bar-chart-mobile-compact .chart-column:nth-child(n + 5) { display:none; }
 }
 
 /* --- Extras --- */
@@ -896,7 +899,7 @@ table.table tbody tr:hover { background: #fcfcfb; }
 .app-main:has(.tarjetas-toolbar) .header-actions { pointer-events: auto; }
 .tarjetas-toolbar { padding-right: 56px; min-height: 40px; }
 @media (max-width: 1100px) { .app-main:has(.tarjetas-toolbar) .app-header { top: 10px; padding: 0 26px; } }
-@media (max-width: 780px) { .app-main:has(.tarjetas-toolbar) .app-header { top: 6px; padding: 0 16px; } .tarjetas-toolbar { padding-right: 100px; } }
+@media (max-width: 780px) { .app-main:has(.tarjetas-toolbar) .app-header { display:none; } .tarjetas-toolbar { padding-right: 16px; } }
 
 .kpi-popover-amount { display: flex; flex-direction: column; align-items: flex-end; flex-shrink: 0; gap: 2px; }
 .kpi-popover-amount small { color: var(--muted); font-size: 10px; white-space: nowrap; }
