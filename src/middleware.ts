@@ -16,6 +16,7 @@ const PUBLIC_PATHS = [
   '/api/health',
   '/manifest.webmanifest',
   '/icon.svg',
+  '/apple-icon',
 ]
 
 export async function middleware(request: NextRequest) {
@@ -41,5 +42,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|icon.svg|manifest.webmanifest).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|icon.svg|apple-icon|manifest.webmanifest).*)'],
 }

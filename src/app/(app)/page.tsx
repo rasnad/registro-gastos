@@ -197,7 +197,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           </div>
         ) : (
           <>
-        <ProjectionChart flows={uyuFlows} currency="UYU" />
+        <ProjectionChart flows={uyuFlows} currency="UYU" compactOnMobile />
         <div className="row" style={{ marginTop: 14, gap: 18 }}>
           {tight.length > 0 ? (
             <Badge tone="warn">

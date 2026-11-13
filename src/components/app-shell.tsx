@@ -132,20 +132,35 @@ export function AppShell({
           <Icon name="movement" size={20} />
           <span>Movimientos</span>
         </Link>
-        <Link href="/movimientos?nuevo=1" className="mobile-add">
+        <Link href="/movimientos?nuevo=1" className="mobile-add" title="Nuevo movimiento" aria-label="Nuevo movimiento">
           <span>
             <Icon name="plus" size={22} />
           </span>
-          <span>Nuevo</span>
         </Link>
         <Link href="/tarjetas" className={isActive('/tarjetas') ? 'active' : ''}>
           <Icon name="card" size={20} />
           <span>Tarjetas</span>
         </Link>
-        <Link href="/proyeccion" className={isActive('/proyeccion') ? 'active' : ''}>
-          <Icon name="chart" size={20} />
-          <span>Proyección</span>
+        <Link href="/cuentas" className={isActive('/cuentas') ? 'active' : ''}>
+          <Icon name="receipt" size={20} />
+          <span>Cuentas</span>
         </Link>
+        <details className={`mobile-more ${['/proyeccion', '/ahorro', '/ajustes'].some(isActive) ? 'is-active' : ''}`}>
+          <summary aria-label="Más secciones" aria-current={['/proyeccion', '/ahorro', '/ajustes'].some(isActive) ? 'page' : undefined}><span aria-hidden="true">···</span><span>Más</span></summary>
+          <div className="mobile-more-menu">
+            <Link href="/proyeccion" aria-current={isActive('/proyeccion') ? 'page' : undefined} onClick={(event) => event.currentTarget.closest('details')?.removeAttribute('open')}><Icon name="chart" size={18} /> Proyección</Link>
+            <Link href="/ahorro" aria-current={isActive('/ahorro') ? 'page' : undefined} onClick={(event) => event.currentTarget.closest('details')?.removeAttribute('open')}><Icon name="goal" size={18} /> Ahorro</Link>
+            <Link href="/ajustes" aria-current={isActive('/ajustes') ? 'page' : undefined} onClick={(event) => event.currentTarget.closest('details')?.removeAttribute('open')}><Icon name="settings" size={18} /> Ajustes</Link>
+            <div className="mobile-more-divider" />
+            <div className="mobile-more-profile">
+              <span className="avatar">{initials(user.name)}</span>
+              <span className="mobile-more-user"><strong>{user.name}</strong><small>{user.email}</small></span>
+            </div>
+            <form action="/api/auth/logout" method="post">
+              <button type="submit" className="mobile-more-logout"><Icon name="logout" size={17} /> Cerrar sesión</button>
+            </form>
+          </div>
+        </details>
       </nav>
     </div>
   )

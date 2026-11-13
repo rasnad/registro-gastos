@@ -10,10 +10,12 @@ export function ProjectionChart({
   flows,
   currency,
   compact = false,
+  compactOnMobile = false,
 }: {
   flows: MonthlyFlow[]
   currency: CurrencyCode
   compact?: boolean
+  compactOnMobile?: boolean
 }) {
   if (flows.length === 0) return null
   const availableOf = (flow: MonthlyFlow) => flow.startCents + flow.incomeCents
@@ -23,7 +25,7 @@ export function ProjectionChart({
   const visible = compact ? flows.slice(0, 4) : flows
 
   return (
-    <div className="bar-chart" role="img" aria-label={`Proyección de los próximos ${visible.length} meses en ${currency}`}>
+    <div className={`bar-chart${compactOnMobile ? ' bar-chart-mobile-compact' : ''}`} role="img" aria-label={`Proyección mensual en ${currency}`}>
       {visible.map((flow) => {
         const available = availableOf(flow)
         const outflows = outflowsOf(flow)
