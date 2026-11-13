@@ -823,7 +823,11 @@ table.table tbody tr:hover { background: #fcfcfb; }
 .kpi-popover-legend { margin: 8px 0 0; font-size: 10px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 6px; }
 
 @media (max-width: 780px) {
-  .month-kpis { grid-template-columns: 1fr 1fr; }
+  .month-kpis { grid-template-columns: 1fr; gap: 6px; }
+  .month-kpis .kpi-button { display:grid; grid-template-columns:minmax(0, 1fr) auto; align-items:center; column-gap:12px; min-height:52px; padding:7px 12px; border-radius:11px; }
+  .month-kpis .kpi-button > span { grid-column:1; grid-row:1; }
+  .month-kpis .kpi-button > strong { grid-column:2; grid-row:1 / span 2; justify-self:end; margin:0; font-size:18px; }
+  .month-kpis .kpi-button > small { grid-column:1; grid-row:2; margin-top:1px; font-size:10.5px; }
   .kpi-popover { left: auto; right: 0; min-width: 230px; }
 }
 
