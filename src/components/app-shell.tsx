@@ -3,6 +3,8 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Icon, LogoMark, type IconName } from '@/components/icons'
+import { Alert } from '@/components/ui'
+import type { GmailConnectionAlert } from '@/lib/gmail/status'
 import type { ReactNode } from 'react'
 
 const MAIN_NAV: Array<{ href: string; label: string; icon: IconName }> = [
@@ -30,10 +32,12 @@ function initials(name: string) {
 export function AppShell({
   user,
   reviewCount,
+  gmailAlert = null,
   children,
 }: {
   user: { name: string; email: string }
   reviewCount: number
+  gmailAlert?: GmailConnectionAlert | null
   children: ReactNode
 }) {
   const pathname = usePathname()
@@ -120,7 +124,24 @@ export function AppShell({
           </div>
         </header>
 
-        <div className="content">{children}</div>
+        <div className="content">
+          {gmailAlert ? (
+            <div style={{ marginBottom: 16 }}>
+              <Alert
+                tone={gmailAlert.tone}
+                title={gmailAlert.title}
+                actions={
+                  <Link href="/ajustes#gmail" className="link-button">
+                    Revisar <Icon name="arrow" size={13} />
+                  </Link>
+                }
+              >
+                <p>{gmailAlert.message}</p>
+              </Alert>
+            </div>
+          ) : null}
+          {children}
+        </div>
       </main>
 
       <nav className="bottom-nav" aria-label="Navegación principal">

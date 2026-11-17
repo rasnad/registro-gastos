@@ -17,6 +17,7 @@ import { deleteAdjustment, deleteIncome, toggleDefaultAccount, toggleIncome } fr
 import { deactivateCategory, deleteMerchantRule, restoreCategory } from '@/app/actions/categories'
 import { disconnectGmail, dismissGmailMessage, resolveGmailMessage, updateGmailSettings } from '@/app/actions/gmail'
 import { isGmailConfigured } from '@/lib/gmail/client'
+import { gmailConnectionAlert, needsReconnect } from '@/lib/gmail/status'
 
 export const metadata: Metadata = { title: 'Ajustes' }
 export const dynamic = 'force-dynamic'
@@ -84,6 +85,7 @@ export default async function AjustesPage({ searchParams }: { searchParams: Para
   const balanceByAccount = new Map(data.balances.map((row) => [row.accountId, row.balanceCents]))
   const gmailConfigured = isGmailConfigured()
   const gmailActive = connection?.status === 'ACTIVE' && Boolean(connection.refreshToken)
+  const gmailAlert = gmailConnectionAlert(connection)
 
   return (
     <div className="settings-layout">
@@ -526,10 +528,18 @@ export default async function AjustesPage({ searchParams }: { searchParams: Para
                     {connection?.lastSyncStatus ? ` · ${connection.lastSyncStatus}` : ''}
                   </small>
                 </div>
-                <Badge tone={connection?.lastSyncStatus === 'ERROR' ? 'danger' : 'ok'}>Conectado</Badge>
+                <Badge tone={needsReconnect(connection) ? 'danger' : 'ok'}>
+                  {needsReconnect(connection) ? 'Requiere reconexión' : 'Conectado'}
+                </Badge>
               </div>
 
-              {connection?.lastSyncError ? <Alert tone="danger">{connection.lastSyncError}</Alert> : null}
+              {gmailAlert ? (
+                <Alert tone={gmailAlert.tone} title={gmailAlert.title}>
+                  {gmailAlert.message}
+                </Alert>
+              ) : connection?.lastSyncError ? (
+                <Alert tone="danger">{connection.lastSyncError}</Alert>
+              ) : null}
 
               <div className="form-section">
                 <p className="hint" style={{ marginBottom: 10 }}>

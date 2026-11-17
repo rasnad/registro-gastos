@@ -163,7 +163,14 @@ No se piden contactos, calendario, Drive ni acceso al perfil completo.
 - Ir a **Ajustes → Conexión con Gmail → Conectar mi cuenta**.
 - Al conectar se fija el **momento de inicio**: sólo se escuchan correos desde ese instante. No se
   importa nada anterior (no hay campo "importar desde").
+- Al **reconectar** (por ejemplo después de que venza el token) se conserva el momento de inicio
+  original, así los avisos que llegaron con la conexión caída se importan en la siguiente
+  sincronización. El dedupe evita duplicados; si el hueco es grande puede llevar varias corridas de
+  120 mensajes.
 - **Sincronizar ahora** procesa hasta 120 mensajes nuevos por corrida.
+- Si la conexión queda en `ERROR` o el token es rechazado (`invalid_grant`), la app muestra un aviso
+  en todas las pantallas y en Ajustes, con el enlace para reconectar. Si se desconectó a propósito
+  no se avisa.
 - Los asuntos buscados son:
   - `Aviso de consumo aprobado con tarjeta de crédito`
   - `Aviso de consumo aprobado con tarjeta de débito`
@@ -180,8 +187,14 @@ No se piden contactos, calendario, Drive ni acceso al perfil completo.
 ### 4.5 Límites reales de Google (importante)
 
 - `gmail.readonly` es un **scope restringido**. Con la app en modo *Testing*, el refresh token vence a
-  los **7 días** y hay que reconectar. Para uso continuo hay que publicar la app (sigue mostrando la
-  advertencia de "app no verificada") y, para uso público, pasar la verificación de Google.
+  los **7 días** y hay que reconectar. **Arreglo:** en Google Cloud Console → *Google Auth Platform →
+  Audience*, cambiar el *Publishing status* de `Testing` a **`In production`** (`Publish app`). Los
+  refresh tokens emitidos después de eso ya no vencen por tiempo. Sigue mostrando la advertencia de
+  "app no verificada" (normal para uso personal: *Configuración avanzada → Ir a la app*), con un tope
+  de 100 usuarios. Para uso público sí hace falta la verificación de Google.
+- Publicar no evita las otras revocaciones: cambio de contraseña, quitar el acceso desde
+  `myaccount.google.com/permissions`, **6 meses sin usar** el token, o superar los 50 refresh tokens
+  por usuario/cliente (se revoca el más viejo, típico si se reconecta muchas veces).
 - Los límites de cuota de Gmail (lecturas por minuto/usuario) aplican igual.
 
 ### 4.6 Sincronización automática en Vercel

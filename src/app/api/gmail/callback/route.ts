@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db'
 import { verifyOAuthState } from '@/lib/session'
 import { exchangeCode, gmailForRefreshToken } from '@/lib/gmail/client'
 import { encryptToken } from '@/lib/gmail/crypto'
+import { importFromForConnection } from '@/lib/gmail/status'
 
 export async function GET(request: Request) {
   const url = new URL(request.url)
@@ -33,6 +34,10 @@ export async function GET(request: Request) {
     const profile = await gmail.users.getProfile({ userId: 'me' })
     const emailAddress = profile.data.emailAddress ?? 'cuenta de Gmail'
 
+    const previous = await prisma.gmailConnection.findUnique({
+      where: { userId: payload.userId },
+      select: { importFrom: true },
+    })
 
     await prisma.gmailConnection.upsert({
       where: { userId: payload.userId },
@@ -44,8 +49,8 @@ export async function GET(request: Request) {
         tokenExpiresAt: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
         scopes: (tokens.scope ?? '').slice(0, 500),
         status: 'ACTIVE',
-        // Escucha correos desde el momento de la conexión: nada del pasado.
-        importFrom: new Date(),
+        // Primera conexión: se escucha desde este momento, nada del pasado.
+        importFrom: importFromForConnection(null),
       },
       update: {
         emailAddress,
@@ -55,8 +60,9 @@ export async function GET(request: Request) {
         scopes: (tokens.scope ?? '').slice(0, 500),
         status: 'ACTIVE',
         lastSyncError: null,
-        // Al reconectar, vuelve a escuchar desde ese momento.
-        importFrom: new Date(),
+        // Al reconectar se conserva el inicio original: los avisos que llegaron
+        // con la conexión caída se importan en la próxima sincronización.
+        importFrom: importFromForConnection(previous?.importFrom),
       },
     })
 
