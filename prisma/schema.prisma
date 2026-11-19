@@ -130,6 +130,7 @@ model User {
   statementImports StatementImport[]
   gmailConnection  GmailConnection?
   syncLogs         SyncLog[]
+  expenseShares    ExpenseShare[]
 }
 
 model Account {
@@ -227,6 +228,7 @@ model Expense {
   account    Account?   @relation(fields: [accountId], references: [id], onDelete: SetNull)
   creditCard CreditCard? @relation(fields: [creditCardId], references: [id], onDelete: SetNull)
   installmentsList CardInstallment[]
+  shares       ExpenseShare[]
   statement  StatementImport? @relation(fields: [statementImportId], references: [id], onDelete: SetNull)
 
   @@unique([userId, gmailMessageId])
@@ -234,6 +236,24 @@ model Expense {
   @@index([userId, status])
   @@index([userId, creditCardId])
   @@index([userId, dedupeKey])
+}
+
+/// Reparto de un gasto entre usuarios registrados en la app.
+/// Sin filas, el gasto lo asume al 100% su dueño (`Expense.userId`).
+/// El importe del gasto sigue siendo el total: acá sólo se registra quién asume qué parte.
+model ExpenseShare {
+  id           String   @id @default(cuid())
+  expenseId    String
+  userId       String
+  sharePercent Int      @default(100)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  expense Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([expenseId, userId])
+  @@index([userId])
 }
 
 model CardInstallment {

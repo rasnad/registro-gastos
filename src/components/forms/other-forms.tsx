@@ -1,7 +1,8 @@
 'use client'
 
-import { useActionState, useState } from 'react'
+import { useActionState, useEffect, useState } from 'react'
 import { ActionForm } from '@/components/action-form'
+import { useDialogClose } from '@/components/dialog'
 import { editLegacyCardPayment } from '@/app/actions/cards'
 import { saveObligationPayment } from '@/app/actions/obligation-payments'
 import { todayISO } from '@/lib/period'
@@ -21,6 +22,7 @@ export function MiniForm({
   className = 'ghost-button small-button',
   confirmMessage,
   icon,
+  closeOnSuccess = false,
 }: {
   action: (state: ActionState, formData: FormData) => Promise<ActionState>
   hidden: Record<string, string | number | boolean | null | undefined>
@@ -28,8 +30,15 @@ export function MiniForm({
   className?: string
   confirmMessage?: string
   icon?: React.ReactNode
+  closeOnSuccess?: boolean
 }) {
   const [state, formAction, pending] = useActionState(action, {})
+  const close = useDialogClose()
+
+  useEffect(() => {
+    if (closeOnSuccess && state?.ok) close?.()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state?.ok, closeOnSuccess])
   return (
     <form
       action={formAction}

@@ -8,8 +8,10 @@ import { fromCents, splitInstallments } from '@/lib/money'
 import {
   statementDueDate,
   statementPeriodForPurchase,
+  toISODate,
 } from '@/lib/period'
 import { buildDedupeKey, normalizeMerchant } from '@/lib/finance/dedupe'
+import { parseShareEntries, shareFieldName, type ShareParseResult } from '@/lib/finance/shares'
 import { bool, cents, currency, dateValue, int, isoDate, optStr, str } from '@/lib/validation'
 import type { ActionState } from '@/lib/action-state'
 
@@ -34,6 +36,19 @@ async function ownedCard(userId: string, id: string | null) {
 async function ownedCategory(userId: string, id: string | null) {
   if (!id) return null
   return prisma.category.findFirst({ where: { id, userId } })
+}
+
+/**
+ * Lee el reparto entre usuarios registrados desde el formulario.
+ * Si el formulario no trae los campos del reparto devuelve `shares: null`
+ * (no hay que tocar lo que ya estaba guardado).
+ */
+async function readShares(formData: FormData): Promise<ShareParseResult> {
+  const members = await prisma.user.findMany({ select: { id: true } })
+  const entries = members
+    .filter((member) => formData.has(shareFieldName(member.id)))
+    .map((member) => ({ userId: member.id, raw: String(formData.get(shareFieldName(member.id)) ?? '') }))
+  return parseShareEntries(entries)
 }
 
 type ExpenseInput = {
@@ -114,6 +129,9 @@ export async function createExpense(_prev: ActionState, formData: FormData): Pro
     : null
   if (gmailMessageId && !gmailMessage) return { error: 'El correo indicado no pertenece a tu cuenta.' }
 
+  const shares = await readShares(formData)
+  if (shares.error) return { error: shares.error }
+
   const dedupeKey = buildDedupeKey({
     date: input.date,
     amountCents: input.amountCents,
@@ -168,6 +186,16 @@ export async function createExpense(_prev: ActionState, formData: FormData): Pro
               isEstimated: false,
             }
           }),
+        })
+      }
+
+      if (shares.shares && shares.shares.length > 0) {
+        await tx.expenseShare.createMany({
+          data: shares.shares.map((share) => ({
+            expenseId: expense.id,
+            userId: share.userId,
+            sharePercent: share.sharePercent,
+          })),
         })
       }
 
@@ -234,6 +262,9 @@ export async function updateExpense(_prev: ActionState, formData: FormData): Pro
     }
   }
 
+  const shares = await readShares(formData)
+  if (shares.error) return { error: shares.error }
+
   try {
     await prisma.$transaction(async (tx) => {
       if (changesMoney) {
@@ -292,6 +323,19 @@ export async function updateExpense(_prev: ActionState, formData: FormData): Pro
         })
       }
 
+      if (shares.shares) {
+        await tx.expenseShare.deleteMany({ where: { expenseId: existing.id } })
+        if (shares.shares.length > 0) {
+          await tx.expenseShare.createMany({
+            data: shares.shares.map((share) => ({
+              expenseId: existing.id,
+              userId: share.userId,
+              sharePercent: share.sharePercent,
+            })),
+          })
+        }
+      }
+
       if (input.saveRule && input.categoryId) {
         await tx.merchantRule.upsert({
           where: { userId_pattern: { userId: user.id, pattern: normalizeMerchant(input.merchant) } },
@@ -333,6 +377,64 @@ export async function setExpenseStatus(_prev: ActionState, formData: FormData): 
     return updated
   })
   if (result.count === 0) return { error: 'El movimiento no existe.' }
+  revalidateAll()
+  return { ok: true }
+}
+
+/** Cambia sólo la categoría, para asignarla desde la lista de movimientos. */
+export async function setExpenseCategory(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const user = await requireUser()
+  const id = str(formData, 'id')
+  const categoryId = optStr(formData, 'categoryId')
+
+  const expense = await prisma.expense.findFirst({
+    where: { id, userId: user.id },
+    select: { id: true, categoryId: true },
+  })
+  if (!expense) return { error: 'El movimiento no existe.' }
+  if (expense.categoryId === categoryId) return { ok: true }
+  if (categoryId && !(await ownedCategory(user.id, categoryId))) {
+    return { error: 'La categoría seleccionada no existe.' }
+  }
+
+  await prisma.expense.update({ where: { id: expense.id }, data: { categoryId } })
+  revalidateAll()
+  return { ok: true }
+}
+
+/** Corrige el nombre o descripción del movimiento y recalcula la clave de duplicados. */
+export async function setExpenseMerchant(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const user = await requireUser()
+  const id = str(formData, 'id')
+  const merchant = str(formData, 'merchant').replace(/\s{2,}/g, ' ')
+
+  if (!merchant) return { error: 'El nombre no puede quedar vacío.' }
+  if (merchant.length > 120) return { error: 'El nombre no puede superar los 120 caracteres.' }
+
+  const expense = await prisma.expense.findFirst({ where: { id, userId: user.id } })
+  if (!expense) return { error: 'El movimiento no existe.' }
+  if (expense.merchant === merchant) return { ok: true }
+
+  const dedupeKey = buildDedupeKey({
+    date: toISODate(expense.date),
+    amountCents: Math.round(Number(expense.amount) * 100),
+    merchant,
+    currency: expense.currency,
+    source: expense.source,
+    accountId: expense.accountId,
+    creditCardId: expense.creditCardId,
+    installments: expense.installments,
+  })
+
+  await prisma.$transaction(async (tx) => {
+    await tx.expense.update({ where: { id: expense.id }, data: { merchant, dedupeKey } })
+    // El aviso del correo guarda el nombre que se extrajo: se mantiene alineado.
+    await tx.processedGmailMessage.updateMany({
+      where: { expenseId: expense.id, connection: { userId: user.id } },
+      data: { merchant },
+    })
+  })
+
   revalidateAll()
   return { ok: true }
 }

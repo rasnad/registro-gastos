@@ -302,15 +302,18 @@ export type FormOptions = {
   cards: Array<{ id: string; name: string; closingDay: number; dueDay: number }>
   categories: Array<{ id: string; name: string; isActive: boolean; icon: string | null; color: string | null }>
   rules: Array<{ pattern: string; categoryId: string }>
+  /** Usuarios registrados en la app, para repartir un gasto compartido. */
+  members: Array<{ id: string; name: string; isMe: boolean }>
 }
 
 /** Opciones para poblar formularios (cuentas, tarjetas, categorías y reglas). */
 export async function loadFormOptions(userId: string): Promise<FormOptions> {
-  const [accounts, cards, categories, rules] = await Promise.all([
+  const [accounts, cards, categories, rules, users] = await Promise.all([
     prisma.account.findMany({ where: { userId }, orderBy: { createdAt: 'asc' } }),
     prisma.creditCard.findMany({ where: { userId, isActive: true }, orderBy: { createdAt: 'asc' } }),
     prisma.category.findMany({ where: { userId }, orderBy: { name: 'asc' } }),
     prisma.merchantRule.findMany({ where: { userId }, orderBy: { updatedAt: 'desc' } }),
+    prisma.user.findMany({ select: { id: true, name: true }, orderBy: { createdAt: 'asc' } }),
   ])
   return {
     today: todayISO(),
@@ -335,5 +338,6 @@ export async function loadFormOptions(userId: string): Promise<FormOptions> {
       color: category.color,
     })),
     rules: rules.map((rule) => ({ pattern: rule.pattern, categoryId: rule.categoryId })),
+    members: users.map((member) => ({ id: member.id, name: member.name, isMe: member.id === userId })),
   }
 }

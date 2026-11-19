@@ -215,10 +215,10 @@ No se piden contactos, calendario, Drive ni acceso al perfil completo.
 
 ## 5. Modelo de datos y reglas de cálculo
 
-Tablas principales: `User`, `Account`, `Income`, `BalanceAdjustment`, `Expense`, `CardInstallment`,
-`CardPayment`, `CreditCard`, `Category`, `MerchantRule`, `RecurringBill`, `BillOccurrence`,
-`SavingsGoal`, `SavingsContribution`, `StatementImport`, `GmailConnection`, `ProcessedGmailMessage`,
-`SyncLog`.
+Tablas principales: `User`, `Account`, `Income`, `BalanceAdjustment`, `Expense`, `ExpenseShare`,
+`CardInstallment`, `CardPayment`, `CreditCard`, `Category`, `MerchantRule`, `RecurringBill`,
+`BillOccurrence`, `SavingsGoal`, `SavingsContribution`, `StatementImport`, `GmailConnection`,
+`ProcessedGmailMessage`, `SyncLog`.
 
 ### Reglas contables implementadas (probadas)
 
@@ -250,6 +250,13 @@ Tablas principales: `User`, `Account`, `Income`, `BalanceAdjustment`, `Expense`,
    en la lista; el pago se registra con el importe total.
 10. **Cuenta predeterminada** ⇒ una cuenta puede marcarse como predeterminada; se preselecciona en los
     formularios de gasto, cuenta fija, ingreso, ajuste, aporte y pago de resumen (si la moneda coincide).
+11. **Reparto de un gasto** ⇒ `ExpenseShare` guarda qué porcentaje asume cada usuario registrado. Sin
+    filas, el gasto lo asume al 100% su dueño (`Expense.userId`), así los gastos viejos y los que
+    llegan del correo no necesitan migración. Los porcentajes se guardan sólo si son mayores a cero y
+    tienen que sumar exactamente 100 (validado en `src/lib/finance/shares.ts`). El importe del gasto
+    sigue siendo el total: el reparto es **atribución** (quién asume qué), no cambia saldos, cuotas ni
+    proyecciones. En la lista se muestra el total y, si tu parte es menor a 100%, "tu parte" con el
+    importe que te corresponde.
 
 ### Períodos de tarjeta
 
@@ -343,6 +350,7 @@ Cobertura de los puntos críticos:
 | Objetivos | Asignación conjunta por prioridad, sin asignar el mismo margen dos veces. |
 | Pago USD desde cuenta UYU | Convierte con la cotización configurada, debita pesos y salda la cuota en dólares. |
 | Gastos compartidos | El porcentaje de la cuenta fija ajusta saldo, compromisos y proyección sin cambiar el total cargado. |
+| Reparto de gastos | Porcentajes sólo entre usuarios registrados, suma exacta de 100, ceros descartados, sin reparto = 100% del dueño, importes de la parte en centavos enteros. |
 | Parsers | Extracción de avisos de consumo y de resúmenes, columnas pesos/dólares, cuotas N/M, líneas omitidas, datos faltantes e instrucciones sospechosas ignoradas. |
 
 Resultado: **66/66 tests OK** y **build de producción OK**. El smoke test E2E (login → alta de gasto →

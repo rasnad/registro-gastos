@@ -11,7 +11,14 @@ import { Icon } from '@/components/icons'
 import { Dialog } from '@/components/dialog'
 import { ExpenseForm } from '@/components/forms/money-forms'
 import { MiniForm } from '@/components/forms/other-forms'
-import { deleteExpense, rememberMerchantRule, setExpenseStatus } from '@/app/actions/expenses'
+import { InlineCategoryPick, InlineMerchantEdit } from '@/components/forms/quick-edit'
+import {
+  deleteExpense,
+  setExpenseCategory,
+  setExpenseMerchant,
+  setExpenseStatus,
+} from '@/app/actions/expenses'
+import { applySharePercent, sharePercentFor } from '@/lib/finance/shares'
 
 export const metadata: Metadata = { title: 'Movimientos' }
 export const dynamic = 'force-dynamic'
@@ -62,7 +69,12 @@ export default async function MovimientosPage({ searchParams }: { searchParams: 
   const [expenses, totals, counts, editing] = await Promise.all([
     prisma.expense.findMany({
       where,
-      include: { category: true, installmentsList: { orderBy: { number: 'asc' } }, creditCard: true },
+      include: {
+        category: true,
+        installmentsList: { orderBy: { number: 'asc' } },
+        creditCard: true,
+        shares: { select: { userId: true, sharePercent: true } },
+      },
       orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
       take: 100,
     }),
@@ -76,7 +88,7 @@ export default async function MovimientosPage({ searchParams }: { searchParams: 
     editarId
       ? prisma.expense.findFirst({
           where: { id: editarId, userId: user.id },
-          include: { installmentsList: true },
+          include: { installmentsList: true, shares: { select: { userId: true, sharePercent: true } } },
         })
       : null,
   ])
@@ -179,72 +191,75 @@ export default async function MovimientosPage({ searchParams }: { searchParams: 
             {expenses.map((expense) => {
               const cents = Math.round(Number(expense.amount) * 100)
               const isReview = expense.status === 'NEEDS_REVIEW'
+              const myShare = sharePercentFor(expense.shares, user.id)
+              const myCents = applySharePercent(cents, myShare)
+              const meta = [
+                isReview ? null : expense.category?.name ?? 'Sin categorizar',
+                dateLabel(toISODate(expense.date)),
+                expense.source === 'CREDIT_CARD'
+                  ? `${expense.creditCard?.name ?? 'Tarjeta'}${expense.installments > 1 ? ` · ${expense.installments} cuotas` : ''}`
+                  : 'débito/efectivo',
+                expense.origin !== 'MANUAL' ? (expense.origin === 'EMAIL' ? 'correo' : 'resumen') : null,
+                myShare < 100 ? `tu parte ${myShare}%` : null,
+              ].filter(Boolean)
               return (
-                <div key={expense.id} className="transaction" style={{ alignItems: 'flex-start' }}>
+                <div key={expense.id} className={`transaction${isReview ? ' needs-review' : ''}`} style={{ alignItems: 'flex-start' }}>
                   <CategoryDot icon={expense.category?.icon} color={expense.category?.color} />
                   <div className="item-main">
-                    <strong>{expense.merchant}</strong>
+                    {isReview ? (
+                      <InlineMerchantEdit
+                        action={setExpenseMerchant}
+                        expenseId={expense.id}
+                        merchant={expense.merchant}
+                      />
+                    ) : (
+                      <strong>{expense.merchant}</strong>
+                    )}
                     <small>
-                      {expense.category?.name ?? 'Sin categorizar'} ·{' '}
-                      {dateLabel(toISODate(expense.date))}
-                      {expense.source === 'CREDIT_CARD'
-                        ? ` · ${expense.creditCard?.name ?? 'Tarjeta'}${expense.installments > 1 ? ` · ${expense.installments} cuotas` : ''}`
-                        : ' · débito/efectivo'}
-                      {expense.origin !== 'MANUAL' ? ` · ${expense.origin === 'EMAIL' ? 'correo' : 'resumen'}` : ''}
-                    </small>
-                    <div className="row" style={{ marginTop: 5, gap: 6 }}>
-                      {isReview ? <Badge tone="warn">Por revisar</Badge> : null}
-                      {expense.isEstimated ? <Badge tone="neutral">Estimado</Badge> : null}
                       {expense.status === 'DISCARDED' ? <Badge tone="danger">Descartado</Badge> : null}
+                      {meta.join(' · ')}
+                    </small>
+                    <div className="row transaction-actions">
                       {isReview ? (
                         <>
+                          <InlineCategoryPick
+                            action={setExpenseCategory}
+                            expenseId={expense.id}
+                            categoryId={expense.categoryId}
+                            categories={categories.map((category) => ({ id: category.id, name: category.name }))}
+                          />
                           <MiniForm
                             action={setExpenseStatus}
                             hidden={{ id: expense.id, status: 'CONFIRMED' }}
                             label="Confirmar"
                             className="secondary-button small-button"
                           />
-                          <MiniForm
-                            action={setExpenseStatus}
-                            hidden={{ id: expense.id, status: 'DISCARDED' }}
-                            label="Descartar"
-                            className="ghost-button small-button"
-                            confirmMessage="¿Descartar este movimiento? No se contará en los cálculos."
-                          />
                         </>
-                      ) : null}
-                      {expense.categoryId && expense.status === 'CONFIRMED' ? (
-                        <MiniForm
-                          action={rememberMerchantRule}
-                          hidden={{ expenseId: expense.id }}
-                          label="Recordar categoría"
-                          className="ghost-button small-button"
-                        />
                       ) : null}
                       <Link href={`/movimientos?editar=${expense.id}`} className="link-button">
                         Editar
                       </Link>
-                      <MiniForm
-                        action={deleteExpense}
-                        hidden={{ id: expense.id }}
-                        label="Eliminar"
-                        className="ghost-button small-button"
-                        confirmMessage="¿Eliminar definitivamente este movimiento y sus cuotas?"
-                      />
                     </div>
                   </div>
                   <div className="item-amount">
                     <strong>
                       <Money cents={cents} currency={expense.currency} />
                     </strong>
-                    {expense.source === 'CREDIT_CARD' ? (
-                      <span className={expense.status === 'CONFIRMED' ? '' : 'estimated'}>
-                        {expense.installments > 1 ? 'Cuotas' : 'Tarjeta'}
+                    {myShare < 100 ? (
+                      <span className="share-note">
+                        tu parte <Money cents={myCents} currency={expense.currency} />
                       </span>
                     ) : (
-                      <span className="paid">Cuenta</span>
+                      <span className={expense.source === 'CREDIT_CARD' ? undefined : 'paid'}>
+                        {expense.source === 'CREDIT_CARD'
+                          ? expense.installments > 1
+                            ? 'Cuotas'
+                            : 'Tarjeta'
+                          : 'Cuenta'}
+                      </span>
                     )}
                   </div>
+                  {isReview ? <span className="review-dot" title="Por revisar" aria-label="Por revisar" /> : null}
                 </div>
               )
             })}
@@ -266,6 +281,7 @@ export default async function MovimientosPage({ searchParams }: { searchParams: 
             cards={options.cards}
             categories={options.categories}
             rules={options.rules}
+            members={options.members}
             today={todayISO()}
           />
         </Dialog>
@@ -289,6 +305,7 @@ export default async function MovimientosPage({ searchParams }: { searchParams: 
             cards={options.cards}
             categories={options.categories}
             rules={options.rules}
+            members={options.members}
             today={todayISO()}
             defaults={{
               id: editing.id,
@@ -303,8 +320,33 @@ export default async function MovimientosPage({ searchParams }: { searchParams: 
               creditCardId: editing.creditCardId,
               installments: editing.installments,
               notes: editing.notes,
+              shares: editing.shares.map((share) => ({
+                userId: share.userId,
+                sharePercent: share.sharePercent,
+              })),
             }}
           />
+          <div className="danger-zone">
+            {editing.status === 'NEEDS_REVIEW' ? (
+              <MiniForm
+                action={setExpenseStatus}
+                hidden={{ id: editing.id, status: 'DISCARDED' }}
+                label="Descartar movimiento"
+                className="danger-button"
+                confirmMessage="¿Descartar este movimiento? No se contará en los cálculos y el correo queda marcado como descartado."
+                closeOnSuccess
+              />
+            ) : (
+              <MiniForm
+                action={deleteExpense}
+                hidden={{ id: editing.id }}
+                label="Eliminar movimiento"
+                className="danger-button"
+                confirmMessage="¿Eliminar definitivamente este movimiento y sus cuotas? Esta acción no se puede deshacer."
+                closeOnSuccess
+              />
+            )}
+          </div>
         </Dialog>
       ) : null}
     </div>

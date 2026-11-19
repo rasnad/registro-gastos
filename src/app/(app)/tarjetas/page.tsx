@@ -113,6 +113,7 @@ export default async function TarjetasPage() {
                       cards={options.cards}
                       categories={options.categories}
                       rules={options.rules}
+                      members={options.members}
                       today={today}
                       defaults={{ source: 'CREDIT_CARD', creditCardId: card.id, currency: 'UYU' }}
                     />

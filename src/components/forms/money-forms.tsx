@@ -6,6 +6,7 @@ import { createExpense, updateExpense } from '@/app/actions/expenses'
 import { createAccount, createAdjustment, createIncome, updateAccount, updateIncome } from '@/app/actions/accounts'
 import { CURRENCIES, type CurrencyCode } from '@/lib/money'
 import { CategoryDot } from '@/components/ui'
+import { shareFieldName, sharePercentFor } from '@/lib/finance/shares'
 import type { ActionState } from '@/lib/action-state'
 
 export type AccountOption = { id: string; name: string; currency: CurrencyCode; kind: string; isDefault: boolean }
@@ -18,6 +19,8 @@ export type CategoryOption = {
   color: string | null
 }
 export type MerchantRule = { pattern: string; categoryId: string }
+/** Usuario registrado al que se le puede asignar una parte del gasto. */
+export type MemberOption = { id: string; name: string; isMe: boolean }
 
 export type ExpenseDefaults = {
   id?: string
@@ -33,6 +36,7 @@ export type ExpenseDefaults = {
   installments?: number
   notes?: string | null
   gmailMessageId?: string
+  shares?: Array<{ userId: string; sharePercent: number }>
 }
 
 function normalize(value: string) {
@@ -52,6 +56,7 @@ export function ExpenseForm({
   rules,
   today,
   defaults,
+  members = [],
   gmailMessageId,
 }: {
   accounts: AccountOption[]
@@ -60,6 +65,7 @@ export function ExpenseForm({
   rules: MerchantRule[]
   today: string
   defaults?: ExpenseDefaults
+  members?: MemberOption[]
   gmailMessageId?: string
 }) {
   const [currency, setCurrency] = useState<CurrencyCode>(defaults?.currency ?? 'UYU')
@@ -104,6 +110,26 @@ export function ExpenseForm({
   }
 
   const action = defaults?.id ? updateExpense : createExpense
+
+  const myDefaults = new Map<string, number>()
+  for (const member of members) {
+    myDefaults.set(member.id, sharePercentFor(defaults?.shares, member.id))
+  }
+  const [shareValues, setShareValues] = useState<Record<string, string>>(() =>
+    Object.fromEntries(members.map((member) => [member.id, String(myDefaults.get(member.id) ?? 0)])),
+  )
+  const shareTotal = Object.values(shareValues).reduce((sum, value) => sum + (Number(value) || 0), 0)
+
+  function splitEvenly() {
+    if (members.length === 0) return
+    const base = Math.floor(100 / members.length)
+    const remainder = 100 - base * members.length
+    setShareValues(
+      Object.fromEntries(
+        members.map((member, index) => [member.id, String(base + (index === 0 ? remainder : 0))]),
+      ),
+    )
+  }
 
   return (
     <ActionForm action={action as (state: ActionState, formData: FormData) => Promise<ActionState>} submitLabel={defaults?.id ? 'Guardar cambios' : 'Registrar movimiento'}>
@@ -285,6 +311,57 @@ export function ExpenseForm({
         <span>Notas (opcional)</span>
         <textarea className="textarea" name="notes" defaultValue={defaults?.notes ?? ''} placeholder="Detalle que quieras conservar" />
       </label>
+
+      <fieldset className="field" style={{ border: 0, padding: 0, margin: '0 0 12px' }}>
+        <span className="field-label">¿Quién asume este gasto?</span>
+        {members.length > 0 ? (
+          <>
+            <div className="share-list">
+              {members.map((member) => (
+                <label key={member.id} className="share-row">
+                  <span>{member.name}{member.isMe ? ' (vos)' : ''}</span>
+                  <span className="share-input">
+                    <input
+                      className="input"
+                      type="number"
+                      min={0}
+                      max={100}
+                      step={1}
+                      inputMode="numeric"
+                      name={shareFieldName(member.id)}
+                      value={shareValues[member.id] ?? '0'}
+                      onChange={(event) =>
+                        setShareValues((current) => ({ ...current, [member.id]: event.target.value }))
+                      }
+                    />
+                    <span>%</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+            <div className="row" style={{ marginTop: 8, gap: 10, alignItems: 'center' }}>
+              {members.length > 1 ? (
+                <button type="button" className="ghost-button small-button" onClick={splitEvenly}>
+                  Partes iguales
+                </button>
+              ) : null}
+              <span className={`hint ${shareTotal === 100 ? '' : 'error-text'}`.trim()}>
+                Suma: {shareTotal}%
+              </span>
+            </div>
+            <p className="hint" style={{ marginTop: 4 }}>
+              El importe cargado es el total; acá indicás qué parte asume cada uno.
+              {members.length === 1
+                ? ' Todavía no hay otros usuarios: por ahora asumís el 100%.'
+                : ''}
+            </p>
+          </>
+        ) : (
+          <p className="hint">
+            Asumís el 100% de este gasto. Si registrás más usuarios, vas a poder repartirlo.
+          </p>
+        )}
+      </fieldset>
 
       {categoryId ? (
         <label className="checkbox">

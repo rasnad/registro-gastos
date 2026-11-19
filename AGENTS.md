@@ -37,7 +37,9 @@ npm run db:deploy  # prisma migrate deploy (requiere TCP 5432)
    Si un dato no es seguro, devolver `null` y marcar revisión. Tests en `tests/`.
 10. **Gastos compartidos**: `RecurringBill.sharePercent` (default 100) ajusta lo que impacta en tu
     saldo. Los importes cargados siguen siendo totales; `billExpectedCents` aplica la parte y
-    `billTotalCents` devuelve el total para mostrar.
+    `billTotalCents` devuelve el total para mostrar. Para un gasto puntual, `ExpenseShare` guarda qué
+    porcentaje asume cada usuario registrado (sin filas = 100% del dueño, la suma debe dar 100). El
+    reparto de un gasto es **atribución**: no cambia saldos, cuotas ni proyecciones.
 11. **Cuenta predeterminada**: `Account.isDefault` se preselecciona en los formularios. Una sola por
     usuario (se administra en `toggleDefaultAccount`). No hardcodear cuentas en el código.
 12. **UI**: usar las clases de `src/app/globals.css` (sistema visual de referencia). Componentes de
