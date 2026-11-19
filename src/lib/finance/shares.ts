@@ -19,6 +19,18 @@ export function shareFieldName(userId: string): string {
 }
 
 /**
+ * Porcentaje guardado de un usuario. Devuelve 0 si no figura en el reparto
+ * (a diferencia de `sharePercentFor`, no aplica el 100% por defecto del dueño).
+ */
+export function shareOf(
+  shares: ExpenseShareInput[] | null | undefined,
+  userId: string,
+): number {
+  const share = shares?.find((item) => item.userId === userId)
+  return share ? share.sharePercent : 0
+}
+
+/**
  * Parte del usuario en el gasto.
  * Sin reparto cargado devuelve 100 (lo asume el dueño); si hay reparto, el
  * usuario que no figura asume 0.
@@ -28,8 +40,7 @@ export function sharePercentFor(
   userId: string,
 ): number {
   if (!shares || shares.length === 0) return FULL_SHARE_PERCENT
-  const share = shares.find((item) => item.userId === userId)
-  return share ? share.sharePercent : 0
+  return shareOf(shares, userId)
 }
 
 /** Importe de la parte del usuario, en centavos enteros. */

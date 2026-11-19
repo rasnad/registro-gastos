@@ -7,8 +7,10 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  // Permite tests .tsx con JSX automático (render de formularios a HTML).
+  esbuild: { jsx: 'automatic' },
   test: {
     environment: 'node',
-    include: ['tests/**/*.test.ts'],
+    include: ['tests/**/*.test.ts', 'tests/**/*.test.tsx'],
   },
 })

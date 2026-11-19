@@ -636,7 +636,6 @@ export default async function AjustesPage({ searchParams }: { searchParams: Para
                                   accounts={options.accounts}
                                   cards={options.cards}
                                   categories={options.categories}
-                                  rules={options.rules}
                                   members={options.members}
                                   today={today}
                                   gmailMessageId={message.messageId}

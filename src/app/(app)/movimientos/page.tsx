@@ -280,7 +280,6 @@ export default async function MovimientosPage({ searchParams }: { searchParams: 
             accounts={options.accounts}
             cards={options.cards}
             categories={options.categories}
-            rules={options.rules}
             members={options.members}
             today={todayISO()}
           />
@@ -304,7 +303,6 @@ export default async function MovimientosPage({ searchParams }: { searchParams: 
             accounts={options.accounts}
             cards={options.cards}
             categories={options.categories}
-            rules={options.rules}
             members={options.members}
             today={todayISO()}
             defaults={{

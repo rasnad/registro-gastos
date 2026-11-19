@@ -3,6 +3,7 @@ import {
   applySharePercent,
   parseShareEntries,
   shareFieldName,
+  shareOf,
   sharePercentFor,
 } from '@/lib/finance/shares'
 
@@ -22,6 +23,16 @@ describe('reparto de gastos', () => {
     expect(sharePercentFor(shares, 'otro')).toBe(40)
     // Si hay reparto y no figuro, mi parte es 0 (lo asume otro).
     expect(sharePercentFor([{ userId: 'otro', sharePercent: 100 }], 'yo')).toBe(0)
+  })
+
+  it('`shareOf` devuelve 0 para quien no figura (sin aplicar el default del dueño)', () => {
+    const shares = [{ userId: 'yo', sharePercent: 100 }]
+    // Es lo que evita que el otro usuario arranque en 100% por defecto.
+    expect(shareOf(shares, 'otro')).toBe(0)
+    expect(shareOf(shares, 'yo')).toBe(100)
+    expect(shareOf([], 'otro')).toBe(0)
+    expect(shareOf(null, 'otro')).toBe(0)
+    expect(shareOf(undefined, 'yo')).toBe(0)
   })
 
   it('calcula el importe de la parte en centavos enteros', () => {

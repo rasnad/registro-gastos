@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState, useRef, useState } from 'react'
+import { useActionState, useEffect, useRef, useState } from 'react'
 import type { ActionState } from '@/lib/action-state'
 
 type ServerAction = (state: ActionState, formData: FormData) => Promise<ActionState>
@@ -21,17 +21,27 @@ export function InlineCategoryPick({
   action: ServerAction
 }) {
   const [state, formAction, pending] = useActionState(action, {})
+  // Controlado: si queda con `defaultValue`, React re-aplica el valor por
+  // defecto al re-renderizar las opciones después de guardar y el select
+  // "volvía" a Sin categorizar.
+  const [value, setValue] = useState(categoryId ?? '')
+  useEffect(() => {
+    setValue(categoryId ?? '')
+  }, [categoryId])
   return (
     <form action={formAction} className="inline-pick">
       <input type="hidden" name="id" value={expenseId} />
       <select
         className="select"
         name="categoryId"
-        defaultValue={categoryId ?? ''}
+        value={value}
         disabled={pending}
         aria-label="Categoría del movimiento"
         title="Asignar categoría"
-        onChange={(event) => event.currentTarget.form?.requestSubmit()}
+        onChange={(event) => {
+          setValue(event.target.value)
+          event.currentTarget.form?.requestSubmit()
+        }}
       >
         <option value="">Sin categorizar</option>
         {categories.map((category) => (
