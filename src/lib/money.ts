@@ -103,7 +103,8 @@ export function splitInstallments(totalCents: number, count: number): number[] {
 /**
  * Convierte centavos de dólar a centavos de peso con la cotización configurada.
  * `rateCents` es cuántos centavos de UYU vale 1 USD (4100 = $U 41,00).
- * Sólo se usa para el pago de obligaciones USD desde una cuenta en pesos.
+ * Se usa al pagar una obligación USD desde una cuenta en pesos y al registrar
+ * una transferencia en dólares (que se anota en pesos con el origen en las notas).
  */
 export function convertUsdToUyu(usdCents: number, rateCents: number): number {
   if (rateCents <= 0) return 0

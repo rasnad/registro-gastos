@@ -201,6 +201,8 @@ export default async function MovimientosPage({ searchParams }: { searchParams: 
                   : 'débito/efectivo',
                 expense.origin !== 'MANUAL' ? (expense.origin === 'EMAIL' ? 'correo' : 'resumen') : null,
                 myShare < 100 ? `tu parte ${myShare}%` : null,
+                // Detalle del aviso (por ejemplo la transferencia original en dólares).
+                expense.notes ?? null,
               ].filter(Boolean)
               return (
                 <div key={expense.id} className={`transaction${isReview ? ' needs-review' : ''}`} style={{ alignItems: 'flex-start' }}>

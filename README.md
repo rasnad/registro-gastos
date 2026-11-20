@@ -174,6 +174,14 @@ No se piden contactos, calendario, Drive ni acceso al perfil completo.
 - Los asuntos buscados son:
   - `Aviso de consumo aprobado con tarjeta de crédito`
   - `Aviso de consumo aprobado con tarjeta de débito`
+  - `Aviso de transferencia realizada`
+- **Avisos de transferencia** (`comunicaciones@itau.com.uy`): se lee el importe y la moneda del texto
+  (`Importe: 2000.00 UYU`) y se crea un gasto **por revisar** con el medio "débito/cuenta", usando el
+  banco destino en el nombre ("Transferencia a Santander"). Si el aviso viene en **dólares**, el gasto
+  se registra en pesos con la cotización configurada (`User.usdRateCents`) y las notas guardan el
+  origen: `Origen en US$ 64,00 · cotización $U 41,00`, que se muestra en Movimientos. Sin cotización
+  válida queda en dólares y se avisa en la revisión. Los movimientos muestran las notas del aviso en
+  la línea de detalle.
 
 ### 4.4 Qué se guarda y qué no
 
@@ -229,7 +237,10 @@ Tablas principales: `User`, `Account`, `Income`, `BalanceAdjustment`, `Expense`,
    duplica. Si el resumen del período ya está pago, el cargo deja de contarse.
 4. **Cuotas** ⇒ cada una se imputa a su período (mes de vencimiento del resumen), no al mes de compra.
    El período se calcula con el cierre configurado y se puede corregir por cuota.
-5. **Monedas** ⇒ UYU y USD se calculan por separado. No hay conversión ni suma entre monedas.
+5. **Monedas** ⇒ UYU y USD se calculan por separado. No hay conversión ni suma entre monedas. La
+   única conversión permitida es el pago de una obligación USD desde una cuenta UYU y el registro
+   de una **transferencia en dólares** (se anota en pesos con la cotización configurada y el importe
+   original queda en las notas).
 6. **Ahorro** ⇒ los aportes con cuenta descuentan el disponible; el ahorro programado se resta del
    margen proyectado. La asignación a objetivos es **por prioridad**, sin prometer dos veces el mismo
    dinero.
@@ -351,6 +362,7 @@ Cobertura de los puntos críticos:
 | Pago USD desde cuenta UYU | Convierte con la cotización configurada, debita pesos y salda la cuota en dólares. |
 | Gastos compartidos | El porcentaje de la cuenta fija ajusta saldo, compromisos y proyección sin cambiar el total cargado. |
 | Reparto de gastos | Porcentajes sólo entre usuarios registrados, suma exacta de 100, ceros descartados, sin reparto = 100% del dueño, importes de la parte en centavos enteros. |
+| Transferencias del correo | Importe y moneda del aviso, gasto por revisar sin tarjeta, nombre con el banco destino, conversión de dólares con la cotización configurada y origen anotado, sin cotización no inventa pesos. |
 | Parsers | Extracción de avisos de consumo y de resúmenes, columnas pesos/dólares, cuotas N/M, líneas omitidas, datos faltantes e instrucciones sospechosas ignoradas. |
 
 Resultado: **66/66 tests OK** y **build de producción OK**. El smoke test E2E (login → alta de gasto →
