@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 import type { ActionState } from '@/lib/action-state'
 
 type ServerAction = (state: ActionState, formData: FormData) => Promise<ActionState>
@@ -8,6 +8,10 @@ type ServerAction = (state: ActionState, formData: FormData) => Promise<ActionSt
 /**
  * Select de categoría que guarda al elegir, sin abrir el formulario completo.
  * Sólo se usa en movimientos pendientes de revisar.
+ *
+ * No se usa `<form action>`: React 19 hace `form.reset()` al completarse la
+ * acción y el select volvía visualmente a "Sin categorizar" (aunque el cambio
+ * ya estaba guardado). Acá la acción se invoca directo y el valor es estado.
  */
 export function InlineCategoryPick({
   expenseId,
@@ -20,28 +24,39 @@ export function InlineCategoryPick({
   categories: Array<{ id: string; name: string }>
   action: ServerAction
 }) {
-  const [state, formAction, pending] = useActionState(action, {})
-  // Controlado: si queda con `defaultValue`, React re-aplica el valor por
-  // defecto al re-renderizar las opciones después de guardar y el select
-  // "volvía" a Sin categorizar.
   const [value, setValue] = useState(categoryId ?? '')
+  const [error, setError] = useState<string | null>(null)
+  const [pending, startTransition] = useTransition()
+
   useEffect(() => {
     setValue(categoryId ?? '')
   }, [categoryId])
+
+  function save(next: string) {
+    const previous = value
+    setValue(next)
+    setError(null)
+    const formData = new FormData()
+    formData.set('id', expenseId)
+    formData.set('categoryId', next)
+    startTransition(async () => {
+      const result = await action({}, formData)
+      if (result?.error) {
+        setValue(previous)
+        setError(result.error)
+      }
+    })
+  }
+
   return (
-    <form action={formAction} className="inline-pick">
-      <input type="hidden" name="id" value={expenseId} />
+    <span className="inline-pick">
       <select
         className="select"
-        name="categoryId"
         value={value}
         disabled={pending}
         aria-label="Categoría del movimiento"
         title="Asignar categoría"
-        onChange={(event) => {
-          setValue(event.target.value)
-          event.currentTarget.form?.requestSubmit()
-        }}
+        onChange={(event) => save(event.target.value)}
       >
         <option value="">Sin categorizar</option>
         {categories.map((category) => (
@@ -50,14 +65,16 @@ export function InlineCategoryPick({
           </option>
         ))}
       </select>
-      {state?.error ? <span className="error-text">{state.error}</span> : null}
-    </form>
+      {error ? <span className="error-text">{error}</span> : null}
+    </span>
   )
 }
 
 /**
  * Nombre del movimiento editable en la lista: guarda al salir del campo o con
- * Enter, y Escape lo devuelve al valor guardado.
+ * Enter, y Escape lo devuelve al valor guardado. Igual que el selector de
+ * categoría, evita `<form action>` para que el reset de React no revierta el
+ * texto que se acaba de guardar.
  */
 export function InlineMerchantEdit({
   expenseId,
@@ -68,42 +85,59 @@ export function InlineMerchantEdit({
   merchant: string
   action: ServerAction
 }) {
-  const [state, formAction, pending] = useActionState(action, {})
-  const formRef = useRef<HTMLFormElement>(null)
   const [value, setValue] = useState(merchant)
-  const next = value.trim().replace(/\s{2,}/g, ' ')
-  const dirty = next.length > 0 && next !== merchant
+  const [error, setError] = useState<string | null>(null)
+  const [pending, startTransition] = useTransition()
+  const inputRef = useRef<HTMLInputElement>(null)
 
-  function submitIfChanged() {
-    if (dirty) formRef.current?.requestSubmit()
+  useEffect(() => {
+    setValue(merchant)
+  }, [merchant])
+
+  const next = value.trim().replace(/\s{2,}/g, ' ')
+
+  function save() {
+    if (!next) {
+      setValue(merchant)
+      return
+    }
+    if (next === merchant) return
+    setError(null)
+    const formData = new FormData()
+    formData.set('id', expenseId)
+    formData.set('merchant', next)
+    startTransition(async () => {
+      const result = await action({}, formData)
+      if (result?.error) setError(result.error)
+    })
   }
 
   return (
-    <form ref={formRef} action={formAction} className="inline-merchant-form">
-      <input type="hidden" name="id" value={expenseId} />
+    <span className="inline-merchant-form">
       <input
+        ref={inputRef}
         className="inline-merchant"
-        name="merchant"
         value={value}
         maxLength={120}
         disabled={pending}
         aria-label="Nombre del movimiento"
         title="Editar el nombre"
         onChange={(event) => setValue(event.target.value)}
-        onBlur={submitIfChanged}
+        onBlur={save}
         onKeyDown={(event) => {
           if (event.key === 'Enter') {
             event.preventDefault()
-            submitIfChanged()
+            // El blur dispara el guardado (y evita guardar dos veces).
+            event.currentTarget.blur()
           }
           if (event.key === 'Escape') {
             event.preventDefault()
             setValue(merchant)
-            event.currentTarget.blur()
+            inputRef.current?.blur()
           }
         }}
       />
-      {state?.error ? <span className="error-text">{state.error}</span> : null}
-    </form>
+      {error ? <span className="error-text">{error}</span> : null}
+    </span>
   )
 }

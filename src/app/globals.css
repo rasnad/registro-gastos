@@ -305,7 +305,7 @@ button:disabled { opacity: 0.55; cursor: not-allowed; box-shadow: none; }
 .transaction-actions { margin-top: 5px; gap: 6px; }
 
 /* Edición rápida en la propia fila (movimientos pendientes) */
-.inline-merchant-form { min-width: 0; }
+.inline-merchant-form { display: block; min-width: 0; }
 .inline-merchant {
   width: 100%;
   border: 1px solid transparent;
