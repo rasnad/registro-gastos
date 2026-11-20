@@ -100,3 +100,17 @@ export function buildTransferExpense(input: {
 export function transferOriginalAmount(parsed: ParsedTransfer): string | null {
   return parsed.amountCents === null ? null : fromCents(parsed.amountCents)
 }
+
+/**
+ * Las transferencias se importan sólo desde la fecha de corte de la conexión:
+ * activar la función no trae de golpe las transferencias anteriores.
+ * Sin fecha no se puede comparar, así que se procesa.
+ */
+export function isTransferAfterCutoff(
+  internalDateMs: number | null,
+  cutoff: Date | null | undefined,
+): boolean {
+  if (internalDateMs === null) return true
+  if (!cutoff) return true
+  return internalDateMs >= cutoff.getTime()
+}

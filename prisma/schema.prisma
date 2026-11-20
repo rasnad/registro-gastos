@@ -497,6 +497,10 @@ model GmailConnection {
   status        GmailStatus @default(ACTIVE)
   // Momento desde el que se escuchan correos: se fija al conectar.
   importFrom    DateTime
+  // Los avisos de transferencia se importan recién desde acá. Arranca en el
+  // momento de la conexión (o de la migración) para no traer transferencias
+  // viejas cuando se agrega una función nueva de importación.
+  transferFrom  DateTime    @default(now())
   autoSync      Boolean     @default(true)
   lastSyncAt    DateTime?
   lastSyncStatus SyncStatus?

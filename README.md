@@ -182,6 +182,9 @@ No se piden contactos, calendario, Drive ni acceso al perfil completo.
   origen: `Origen en US$ 64,00 · cotización $U 41,00`, que se muestra en Movimientos. Sin cotización
   válida queda en dólares y se avisa en la revisión. Los movimientos muestran las notas del aviso en
   la línea de detalle.
+  Las transferencias se importan sólo desde `GmailConnection.transferFrom` (arranca cuando se activó
+  la función): las anteriores quedan marcadas como omitidas y no se cargan retroactivamente. La fecha
+  se puede mover con SQL si alguna vez querés recuperar un período.
 
 ### 4.4 Qué se guarda y qué no
 

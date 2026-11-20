@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { buildTransferExpense, transferMerchantName } from '@/lib/gmail/transfer-expense'
+import {
+  buildTransferExpense,
+  isTransferAfterCutoff,
+  transferMerchantName,
+} from '@/lib/gmail/transfer-expense'
 import type { ParsedTransfer } from '@/lib/gmail/transfer-parser'
 
 const base: ParsedTransfer = {
@@ -67,5 +71,25 @@ describe('transferencia como gasto a revisar', () => {
     expect(transferMerchantName({ ...base, destinationBank: null, destinationAccount: null })).toBe(
       'Transferencia realizada',
     )
+  })
+})
+
+describe('fecha de corte de las transferencias', () => {
+  const cutoff = new Date('2026-11-19T15:00:00.000Z')
+
+  it('no importa las transferencias anteriores a la activación', () => {
+    expect(isTransferAfterCutoff(new Date('2026-11-18T10:00:00.000Z').getTime(), cutoff)).toBe(false)
+    expect(isTransferAfterCutoff(new Date('2026-11-19T14:59:59.000Z').getTime(), cutoff)).toBe(false)
+  })
+
+  it('importa las transferencias posteriores', () => {
+    expect(isTransferAfterCutoff(cutoff.getTime(), cutoff)).toBe(true)
+    expect(isTransferAfterCutoff(new Date('2026-11-20T09:00:00.000Z').getTime(), cutoff)).toBe(true)
+  })
+
+  it('sin fecha del mensaje o sin corte no bloquea nada', () => {
+    expect(isTransferAfterCutoff(null, cutoff)).toBe(true)
+    expect(isTransferAfterCutoff(Date.now(), null)).toBe(true)
+    expect(isTransferAfterCutoff(Date.now(), undefined)).toBe(true)
   })
 })

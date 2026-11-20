@@ -19,7 +19,7 @@ import {
 } from '@/lib/gmail/client'
 import { parseConsumptionEmail } from '@/lib/gmail/parser'
 import { isTransferSubject, parseTransferEmail } from '@/lib/gmail/transfer-parser'
-import { buildTransferExpense } from '@/lib/gmail/transfer-expense'
+import { buildTransferExpense, isTransferAfterCutoff } from '@/lib/gmail/transfer-expense'
 
 export type SyncResult = {
   ok: boolean
@@ -186,6 +186,25 @@ export async function syncGmailForUser(userId: string): Promise<SyncResult> {
 
           // Aviso de transferencia realizada: sale plata de una cuenta, sin tarjeta.
           if (isTransferSubject(subject)) {
+            // Sólo transferencias posteriores a la activación: las anteriores no
+            // se importan (quedan registradas para no volver a mirarlas).
+            if (!isTransferAfterCutoff(listedInternalDate, connection.transferFrom)) {
+              await prisma.processedGmailMessage.create({
+                data: {
+                  connectionId: connection.id,
+                  messageId: item.id,
+                  threadId: message.data.threadId ?? null,
+                  subject: subject.slice(0, 200),
+                  fromAddress: from.slice(0, 200),
+                  receivedAt: receivedAt ? new Date(`${receivedAt}T00:00:00.000Z`) : null,
+                  status: 'SKIPPED_IRRELEVANT',
+                  reason: 'Transferencia anterior a la activación de la importación de transferencias.',
+                },
+              })
+              skipped += 1
+              continue
+            }
+
             const transfer = parseTransferEmail(text, receivedAt)
             const { draft, reason } = buildTransferExpense({ parsed: transfer, usdRateCents })
             const messageData = {
