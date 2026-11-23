@@ -131,6 +131,8 @@ model User {
   gmailConnection  GmailConnection?
   syncLogs         SyncLog[]
   expenseShares    ExpenseShare[]
+  savingsFunds     SavingsFund[]
+  savingsWithdrawals SavingsWithdrawal[]
 }
 
 model Account {
@@ -154,6 +156,7 @@ model Account {
   billPayments  BillOccurrence[]
   contributions SavingsContribution[]
   recurringBills RecurringBill[]
+  savingsWithdrawals SavingsWithdrawal[]
 
   @@index([userId, isActive])
 }
@@ -455,6 +458,40 @@ model SavingsContribution {
   account Account?    @relation(fields: [accountId], references: [id], onDelete: SetNull)
 
   @@index([userId, goalId])
+}
+
+/// Ahorro inicial declarado por el usuario: la plata que ya tenía ahorrada.
+/// Uno por moneda; no se convierten monedas.
+model SavingsFund {
+  id            String   @id @default(cuid())
+  userId        String
+  currency      Currency
+  initialAmount Decimal  @db.Decimal(14, 2) @default(0)
+  startDate     DateTime @db.Date
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, currency])
+}
+
+/// Transferencia del ahorro a una cuenta: la plata vuelve al banco.
+model SavingsWithdrawal {
+  id        String   @id @default(cuid())
+  userId    String
+  currency  Currency
+  amount    Decimal  @db.Decimal(14, 2)
+  date      DateTime @db.Date
+  accountId String?
+  note      String?
+  createdAt DateTime @default(now())
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account Account? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+
+  @@index([userId, date])
+  @@index([userId, accountId])
 }
 
 model StatementImport {

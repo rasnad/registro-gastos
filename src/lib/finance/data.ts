@@ -22,6 +22,7 @@ import {
   type InstallmentSnapshot,
 } from '@/lib/finance/engine'
 import type { ComparableExpense } from '@/lib/finance/dedupe'
+import type { SavingsWithdrawalSnapshot } from '@/lib/finance/savings'
 
 export type FinanceData = {
   today: string
@@ -61,6 +62,7 @@ export async function loadFinanceData(
     occurrenceRows,
     goalRows,
     contributionRows,
+    withdrawalRows,
     reviewMessages,
   ] = await Promise.all([
     prisma.statementImport.findMany({where:{userId,status:'IMPORTED'},orderBy:[{createdAt:'desc'},{id:'desc'}]}),
@@ -80,6 +82,7 @@ export async function loadFinanceData(
     prisma.billOccurrence.findMany({ where: { userId } }),
     prisma.savingsGoal.findMany({ where: { userId }, orderBy: [{ priority: 'asc' }, { createdAt: 'asc' }] }),
     prisma.savingsContribution.findMany({ where: { userId }, orderBy: { date: 'desc' } }),
+    prisma.savingsWithdrawal.findMany({ where: { userId }, orderBy: { date: 'desc' } }),
     prisma.processedGmailMessage.findMany({
       where: { connection: { userId }, status: 'NEEDS_REVIEW' },
       select: { expenseId: true },
@@ -224,6 +227,15 @@ export async function loadFinanceData(
     accountId: contribution.accountId,
   }))
 
+  const savingsWithdrawals: SavingsWithdrawalSnapshot[] = withdrawalRows.map((withdrawal) => ({
+    id: withdrawal.id,
+    currency: withdrawal.currency,
+    amountCents: toCents(withdrawal.amount),
+    date: toISODate(withdrawal.date),
+    accountId: withdrawal.accountId,
+    note: withdrawal.note,
+  }))
+
   const input: EngineInput = {
     today,
     statementTotals:statementTotalsFromImports(statementRows),
@@ -244,6 +256,7 @@ export async function loadFinanceData(
     billOccurrences,
     goals,
     contributions,
+    savingsWithdrawals,
   }
 
   const reviewCount = countPendingReviews(expenseRows, reviewMessages)

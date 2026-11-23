@@ -376,6 +376,42 @@ button:disabled { opacity: 0.55; cursor: not-allowed; box-shadow: none; }
 .split-sum { margin-top: 8px; font-size: 11.5px; color: var(--muted); }
 .split-sum strong { color: var(--ink-soft); }
 .danger-zone { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); display: flex; justify-content: flex-end; }
+
+/* ------------------------------------------------------------------ */
+/* Ahorro: totales, evolución y torta por categoría                    */
+/* ------------------------------------------------------------------ */
+.amount-below { color: var(--danger) !important; }
+.amount-in { color: var(--green) !important; }
+.savings-charts { display: grid; gap: 20px; }
+.savings-chart-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; margin-bottom: 4px; flex-wrap: wrap; }
+.savings-chart-head strong { font-size: 22px; letter-spacing: -0.6px; font-variant-numeric: tabular-nums; display: block; }
+.savings-chart-legend { display: flex; gap: 14px; font-size: 11px; color: var(--muted); }
+.savings-chart-legend i { display: inline-block; width: 14px; border-top: 2px solid #4f8371; vertical-align: middle; margin-right: 5px; }
+.savings-chart-legend i.planned { border-top-style: dashed; border-color: #b7a8d7; }
+.savings-chart svg { width: 100%; height: auto; display: block; }
+.chart-axis { font-size: 9px; fill: #9d9aa3; }
+
+.donut-chart { display: flex; gap: 22px; align-items: center; flex-wrap: wrap; }
+.donut-figure { position: relative; width: 180px; height: 180px; flex: none; }
+.donut-figure svg { width: 180px; height: 180px; display: block; }
+.donut-center { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; pointer-events: none; }
+.donut-center small { display: block; font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--muted); }
+.donut-center strong { font-size: 15px; font-variant-numeric: tabular-nums; }
+.donut-legend { list-style: none; margin: 0; padding: 0; flex: 1; min-width: 220px; display: grid; gap: 6px; }
+.donut-legend li { display: grid; grid-template-columns: 10px 1fr auto auto; align-items: center; gap: 8px; font-size: 11.5px; color: var(--ink-soft); }
+.donut-dot { width: 9px; height: 9px; border-radius: 3px; }
+.donut-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.donut-percent { color: var(--muted); font-variant-numeric: tabular-nums; }
+.donut-amount { font-weight: 600; font-variant-numeric: tabular-nums; }
+.donut-empty { display: grid; gap: 3px; padding: 24px 0; color: var(--muted); font-size: 12px; }
+.donut-empty strong { color: var(--ink); font-size: 13px; }
+
+/* Paginación de movimientos */
+.pager { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); font-size: 11.5px; color: var(--muted); }
+.pager .row { gap: 6px; }
+.pager a, .pager span.disabled { display: inline-flex; align-items: center; gap: 4px; min-height: 30px; padding: 0 11px; border-radius: 9px; border: 1px solid var(--line-strong); background: #fff; color: var(--purple-dark); font-weight: 600; }
+.pager span.disabled { color: var(--muted-2); background: #fbfbfa; border-color: var(--line); }
+.pager a:hover { border-color: #c9bfda; text-decoration: none; }
 .category-icon { width: 36px; height: 36px; border-radius: 11px; display: grid; place-items: center; font-size: 14px; font-weight: 600; color: #5f5b63; flex: none; }
 .category-icon.mint { background: #e1f0e9; }
 .category-icon.lavender { background: #eeeaf6; }

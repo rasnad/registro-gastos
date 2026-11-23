@@ -2,20 +2,32 @@ import type { Metadata } from 'next'
 import { requireUser } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { loadFinanceData, loadFormOptions } from '@/lib/finance/data'
-import { fromCents, formatMoney } from '@/lib/money'
-import { monthLabel, todayISO, toISODate } from '@/lib/period'
-import { Money, Progress, Badge, SectionHead, EmptyState } from '@/components/ui'
+import { fromCents, formatMoney, toCents, type CurrencyCode } from '@/lib/money'
+import { monthKeyOf, monthLabel, todayISO, toISODate } from '@/lib/period'
+import { Money, Progress, Badge, SectionHead, EmptyState, Alert } from '@/components/ui'
 import { Icon } from '@/components/icons'
 import { Dialog } from '@/components/dialog'
 import { ContributionForm, GoalForm, MiniForm } from '@/components/forms/other-forms'
+import { SavingsFundForm, SavingsWithdrawalForm } from '@/components/forms/savings-forms'
+import { SavingsChart } from '@/components/finance/savings-chart'
 import { deleteContribution, deleteGoal } from '@/app/actions/goals'
+import { deleteSavingsWithdrawal } from '@/app/actions/savings'
+import {
+  savingsMonths,
+  savingsSeries,
+  savingsStatus,
+  savingsTotalCents,
+  type SavingsFundSnapshot,
+} from '@/lib/finance/savings'
 
 export const metadata: Metadata = { title: 'Ahorro' }
 export const dynamic = 'force-dynamic'
 
+const CODES: CurrencyCode[] = ['UYU', 'USD']
+
 export default async function AhorroPage() {
   const user = await requireUser()
-  const [data, options, goalRows, contributions] = await Promise.all([
+  const [data, options, goalRows, contributions, fundRows, withdrawalRows] = await Promise.all([
     loadFinanceData(user.id, { months: 12 }),
     loadFormOptions(user.id),
     prisma.savingsGoal.findMany({
@@ -28,9 +40,18 @@ export default async function AhorroPage() {
       take: 20,
       include: { goal: true, account: true },
     }),
+    prisma.savingsFund.findMany({ where: { userId: user.id } }),
+    prisma.savingsWithdrawal.findMany({
+      where: { userId: user.id },
+      orderBy: { date: 'desc' },
+      take: 20,
+      include: { account: true },
+    }),
   ])
   const today = todayISO()
   const plans = data.overview.goals
+  const activeGoals = goalRows.filter((goal) => goal.isActive)
+
   const totalSaved = { UYU: 0, USD: 0 }
   const totalRequired = { UYU: 0, USD: 0 }
   for (const plan of plans) {
@@ -38,26 +59,88 @@ export default async function AhorroPage() {
     totalRequired[plan.currency] += plan.requiredMonthlyCents
   }
 
-  const activeGoals = goalRows.filter((goal) => goal.isActive)
+  const fundByCurrency = new Map(fundRows.map((fund) => [fund.currency, fund]))
+  const fundSnapshot = (code: CurrencyCode): SavingsFundSnapshot | null => {
+    const fund = fundByCurrency.get(code)
+    if (!fund) return null
+    return {
+      currency: code,
+      initialCents: toCents(fund.initialAmount),
+      startDate: toISODate(fund.startDate),
+    }
+  }
+
+  // Ahorro mensual esperado: lo que piden los objetivos de esa moneda.
+  const plannedMonthly = { UYU: 0, USD: 0 }
+  for (const plan of plans) {
+    const goal = goalRows.find((row) => row.id === plan.goalId)
+    const monthly = goal?.monthlyTarget != null ? toCents(goal.monthlyTarget) : plan.requiredMonthlyCents
+    plannedMonthly[plan.currency] += monthly ?? 0
+  }
+
+  const savings = CODES.map((code) => {
+    const fund = fundSnapshot(code)
+    const contributionsForCurrency = data.input.contributions.filter((item) => item.currency === code)
+    const withdrawalsForCurrency = (data.input.savingsWithdrawals ?? []).filter(
+      (item) => item.currency === code,
+    )
+    const initialCents = fund?.initialCents ?? 0
+    const totalCents = savingsTotalCents({
+      initialCents,
+      contributionsCents: contributionsForCurrency.reduce((sum, item) => sum + item.amountCents, 0),
+      withdrawalsCents: withdrawalsForCurrency.reduce((sum, item) => sum + item.amountCents, 0),
+    })
+    const withBalance = initialCents > 0 || contributionsForCurrency.length > 0 || withdrawalsForCurrency.length > 0
+    const months = savingsMonths({
+      today: monthKeyOf(today),
+      fund,
+      contributions: contributionsForCurrency,
+      withdrawals: withdrawalsForCurrency,
+      max: 12,
+    })
+    return {
+      code,
+      fund,
+      initialCents,
+      totalCents,
+      status: savingsStatus(totalCents, initialCents),
+      hasData: withBalance,
+      points: savingsSeries({
+        months,
+        fund,
+        contributions: contributionsForCurrency,
+        withdrawals: withdrawalsForCurrency,
+        plannedMonthlyCents: plannedMonthly[code],
+      }),
+    }
+  })
+
+  const primary = savings[0]
+  const belowInitial = savings.filter((item) => item.hasData && item.status.belowInitial)
+  const anyData = savings.some((item) => item.hasData)
+  const fundsWithValue = fundRows.length > 0
 
   return (
     <div className="stack">
       <section className="savings-overview">
         <div>
-          <span className="eyebrow">AHORRADO EN OBJETIVOS ACTIVOS</span>
+          <span className="eyebrow">AHORRO TOTAL</span>
           <div className="row" style={{ gap: 20 }}>
-            <strong>
-              <Money cents={totalSaved.UYU} currency="UYU" />
+            <strong className={primary.status.belowInitial ? 'amount-below' : undefined}>
+              <Money cents={primary.totalCents} currency="UYU" />
             </strong>
-            {totalSaved.USD > 0 ? (
-              <strong style={{ fontSize: 20 }}>
-                <Money cents={totalSaved.USD} currency="USD" />
+            {savings[1].totalCents > 0 || savings[1].initialCents > 0 ? (
+              <strong
+                className={savings[1].status.belowInitial ? 'amount-below' : undefined}
+                style={{ fontSize: 20, color: savings[1].status.belowInitial ? undefined : 'var(--green)' }}
+              >
+                <Money cents={savings[1].totalCents} currency="USD" />
               </strong>
             ) : null}
           </div>
           <p>
-            {plans.length} objetivo{plans.length === 1 ? '' : 's'} activo{plans.length === 1 ? '' : 's'} · sin
-            conversión entre monedas
+            Ahorro inicial {formatMoney(primary.initialCents, 'UYU')} + aportes − transferencias a cuentas
+            {totalSaved.UYU > 0 ? ` · ${formatMoney(totalSaved.UYU, 'UYU')} asignados a objetivos` : ''}
           </p>
         </div>
         <div className="monthly-needed">
@@ -76,6 +159,120 @@ export default async function AhorroPage() {
             ) : null}
           </div>
         </div>
+      </section>
+
+      {belowInitial.length > 0 ? (
+        <Alert tone="danger" title="Estás por debajo del ahorro inicial">
+          {belowInitial
+            .map(
+              (item) =>
+                `${formatMoney(Math.abs(item.status.deltaCents), item.code)} menos en ${item.code}`,
+            )
+            .join(' · ')}
+          . Las transferencias a tus cuentas bajaron el ahorro: podés devolverlo con un aporte.
+        </Alert>
+      ) : null}
+
+      <div className="row" style={{ gap: 8 }}>
+        <Dialog
+          label={fundsWithValue ? 'Editar ahorro inicial' : 'Cargar ahorro inicial'}
+          icon="goal"
+          buttonClassName="secondary-button small-button"
+          title="Ahorro inicial"
+        >
+          <SavingsFundForm
+            today={today}
+            defaults={{
+              uyu: fundByCurrency.get('UYU')
+                ? fromCents(toCents(fundByCurrency.get('UYU')!.initialAmount))
+                : null,
+              usd: fundByCurrency.get('USD')
+                ? fromCents(toCents(fundByCurrency.get('USD')!.initialAmount))
+                : null,
+              startDate: fundRows[0] ? toISODate(fundRows[0].startDate) : today,
+            }}
+          />
+        </Dialog>
+        <Dialog
+          label="Transferir a mi cuenta"
+          icon="arrow"
+          buttonClassName="primary-button small-button"
+          title="Transferir del ahorro a una cuenta"
+        >
+          <SavingsWithdrawalForm accounts={options.accounts} today={today} />
+        </Dialog>
+      </div>
+
+      {anyData ? (
+        <section className="panel">
+          <SectionHead
+            title="Evolución del ahorro"
+            note="Línea llena: lo que tenés. Línea punteada: lo que deberías tener si cumplís el plan de objetivos"
+          />
+          <div className="savings-charts">
+            {savings
+              .filter((item) => item.hasData)
+              .map((item) => (
+                <SavingsChart
+                  key={item.code}
+                  points={item.points}
+                  currency={item.code}
+                  plannedLabel="Según objetivos"
+                />
+              ))}
+          </div>
+        </section>
+      ) : (
+        <section className="panel">
+          <SectionHead
+            title="Evolución del ahorro"
+            note="Cargá el ahorro inicial o registrá un aporte para empezar a ver la evolución"
+          />
+          <p className="hint">Todavía no hay datos de ahorro registrados.</p>
+        </section>
+      )}
+
+      <section className="panel">
+        <SectionHead
+          title="Transferencias del ahorro a cuentas"
+          note="Sacan plata del ahorro y la devuelven al saldo de la cuenta elegida"
+        />
+        {withdrawalRows.length === 0 ? (
+          <p className="hint">Todavía no transferiste plata del ahorro a una cuenta.</p>
+        ) : (
+          <div className="transaction-list">
+            {withdrawalRows.map((withdrawal) => (
+              <div className="transaction" key={withdrawal.id}>
+                <span className="category-icon mint">
+                  <Icon name="wallet" size={16} />
+                </span>
+                <div className="item-main">
+                  <strong>Transferencia a {withdrawal.account?.name ?? 'una cuenta'}</strong>
+                  <small>
+                    {toISODate(withdrawal.date)}
+                    {withdrawal.note ? ` · ${withdrawal.note}` : ''} · desde el ahorro
+                  </small>
+                </div>
+                <div className="item-amount">
+                  <strong className="amount-in">
+                    +{' '}
+                    <Money
+                      cents={Math.round(Number(withdrawal.amount) * 100)}
+                      currency={withdrawal.currency}
+                    />
+                  </strong>
+                  <MiniForm
+                    action={deleteSavingsWithdrawal}
+                    hidden={{ id: withdrawal.id }}
+                    label="Eliminar"
+                    className="ghost-button small-button"
+                    confirmMessage="¿Eliminar esta transferencia? El saldo de la cuenta vuelve atrás."
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       <div className="goals-head">

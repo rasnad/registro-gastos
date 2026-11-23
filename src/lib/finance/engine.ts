@@ -1,4 +1,5 @@
 import { paymentDebits, monthlyCommitments, obligationBalance, type IndependentPayment } from '@/lib/finance/obligations'
+import type { SavingsWithdrawalSnapshot } from '@/lib/finance/savings'
 /**
  * Motor de cálculo financiero (puro, sin Prisma ni React).
  *
@@ -186,6 +187,8 @@ export type EngineInput = {
   billOccurrences: BillOccurrenceSnapshot[]
   goals: GoalSnapshot[]
   contributions: ContributionSnapshot[]
+  /** Retiros del ahorro que vuelven a una cuenta: aumentan su saldo. */
+  savingsWithdrawals?: SavingsWithdrawalSnapshot[]
 }
 
 function currentOf(input: EngineInput): MonthKey {
@@ -285,8 +288,10 @@ export function accountBalanceBreakdown(account: AccountSnapshot, input: EngineI
   const cardPaymentCents = paymentDebits(payments.filter(p => p.obligationKind !== 'BILL'),account.id,asOf)
   const billPaymentCents = paymentDebits(payments.filter(p => p.obligationKind === 'BILL'),account.id,asOf)
   const contributionCents = sumCents(input.contributions.filter(c => c.accountId === account.id && c.date <= asOf).map(c => c.amountCents))
-  return {openingCents:account.openingCents,incomeCents,adjustmentCents,expenseCents,cardPaymentCents,billPaymentCents,contributionCents,
-    balanceCents:account.openingCents+incomeCents+adjustmentCents-expenseCents-cardPaymentCents-billPaymentCents-contributionCents}
+  // Un retiro del ahorro devuelve la plata a la cuenta: suma al saldo.
+  const withdrawalCents = sumCents((input.savingsWithdrawals ?? []).filter(w => w.accountId === account.id && w.date <= asOf).map(w => w.amountCents))
+  return {openingCents:account.openingCents,incomeCents,adjustmentCents,expenseCents,cardPaymentCents,billPaymentCents,contributionCents,withdrawalCents,
+    balanceCents:account.openingCents+incomeCents+adjustmentCents-expenseCents-cardPaymentCents-billPaymentCents-contributionCents+withdrawalCents}
 }
 
 /** Ingresos recibidos aún sin asociar a una cuenta, separados por moneda. */

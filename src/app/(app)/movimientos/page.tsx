@@ -5,13 +5,21 @@ import { requireUser } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { loadFormOptions } from '@/lib/finance/data'
 import { fromCents, formatMoney, type CurrencyCode } from '@/lib/money'
-import { toISODate, dateLabel, todayISO } from '@/lib/period'
-import { Money, Badge, CategoryDot } from '@/components/ui'
+import {
+  addMonthsISO,
+  dateLabel,
+  monthKeyOf,
+  monthRange,
+  toISODate,
+  todayISO,
+} from '@/lib/period'
+import { Money, Badge, CategoryDot, SectionHead } from '@/components/ui'
 import { Icon } from '@/components/icons'
 import { Dialog } from '@/components/dialog'
 import { ExpenseForm } from '@/components/forms/money-forms'
 import { MiniForm } from '@/components/forms/other-forms'
 import { InlineCategoryPick, InlineMerchantEdit } from '@/components/forms/quick-edit'
+import { CategoryDonut } from '@/components/finance/category-donut'
 import {
   deleteExpense,
   setExpenseCategory,
@@ -19,15 +27,30 @@ import {
   setExpenseStatus,
 } from '@/app/actions/expenses'
 import { applySharePercent, sharePercentFor } from '@/lib/finance/shares'
+import { categorySlices, type CategoryBreakdownRow } from '@/lib/finance/breakdown'
 
 export const metadata: Metadata = { title: 'Movimientos' }
 export const dynamic = 'force-dynamic'
+
+const PAGE_SIZE = 25
 
 type Params = Promise<Record<string, string | string[] | undefined>>
 
 function single(value: string | string[] | undefined): string {
   return typeof value === 'string' ? value : ''
 }
+
+const PERIODS = [
+  { key: '', label: 'Rango elegido' },
+  { key: 'ultimo', label: 'Último mes' },
+  { key: 'anterior', label: 'Mes anterior' },
+] as const
+
+const SOURCES = [
+  { key: '', label: 'Todo' },
+  { key: 'tarjeta', label: 'Crédito' },
+  { key: 'cuenta', label: 'Débito' },
+] as const
 
 export default async function MovimientosPage({ searchParams }: { searchParams: Params }) {
   const user = await requireUser()
@@ -39,13 +62,28 @@ export default async function MovimientosPage({ searchParams }: { searchParams: 
   const estado = single(params.estado)
   const desde = single(params.desde)
   const hasta = single(params.hasta)
+  const periodo = single(params.periodo)
   const editarId = single(params.editar)
   const nuevo = single(params.nuevo) === '1'
+  const page = Math.max(1, Math.trunc(Number(single(params.page))) || 1)
 
   const [options, categories] = await Promise.all([
     loadFormOptions(user.id),
     prisma.category.findMany({ where: { userId: user.id }, orderBy: { name: 'asc' } }),
   ])
+
+  const today = todayISO()
+  // Los atajos de período completan el rango de fechas.
+  let desdeValue = desde
+  let hastaValue = hasta
+  if (periodo === 'ultimo') {
+    desdeValue = addMonthsISO(today, -1)
+    hastaValue = today
+  } else if (periodo === 'anterior') {
+    const range = monthRange(monthKeyOf(addMonthsISO(today, -1)))
+    desdeValue = range.start
+    hastaValue = range.end
+  }
 
   const where: Prisma.ExpenseWhereInput = { userId: user.id }
   if (estado === 'revision') where.status = 'NEEDS_REVIEW'
@@ -58,15 +96,17 @@ export default async function MovimientosPage({ searchParams }: { searchParams: 
   if (categoria) where.categoryId = categoria
   if (medio === 'tarjeta') where.source = 'CREDIT_CARD'
   if (medio === 'cuenta') where.source = 'ACCOUNT'
-  if (desde || hasta) {
+  if (desdeValue || hastaValue) {
     where.date = {
-      ...(desde ? { gte: new Date(`${desde}T00:00:00.000Z`) } : {}),
-      ...(hasta ? { lte: new Date(`${hasta}T00:00:00.000Z`) } : {}),
+      ...(desdeValue ? { gte: new Date(`${desdeValue}T00:00:00.000Z`) } : {}),
+      ...(hastaValue ? { lte: new Date(`${hastaValue}T00:00:00.000Z`) } : {}),
     }
   }
   if (q) where.merchant = { contains: q, mode: 'insensitive' }
 
-  const [expenses, totals, counts, editing] = await Promise.all([
+  const withdrawalsVisible = !categoria && medio !== 'tarjeta' && estado !== 'revision'
+
+  const [expenses, totals, counts, total, breakdownRows, withdrawals, editing] = await Promise.all([
     prisma.expense.findMany({
       where,
       include: {
@@ -76,7 +116,8 @@ export default async function MovimientosPage({ searchParams }: { searchParams: 
         shares: { select: { userId: true, sharePercent: true } },
       },
       orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
-      take: 100,
+      skip: (page - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
     }),
     prisma.expense.groupBy({
       by: ['currency'],
@@ -85,6 +126,31 @@ export default async function MovimientosPage({ searchParams }: { searchParams: 
       _count: { _all: true },
     }),
     prisma.expense.count({ where: { userId: user.id, status: 'NEEDS_REVIEW' } }),
+    prisma.expense.count({ where }),
+    prisma.expense.groupBy({
+      by: ['categoryId', 'currency'],
+      where,
+      _sum: { amount: true },
+    }),
+    withdrawalsVisible
+      ? prisma.savingsWithdrawal.findMany({
+          where: {
+            userId: user.id,
+            ...(moneda === 'UYU' || moneda === 'USD' ? { currency: moneda } : {}),
+            ...(desdeValue || hastaValue
+              ? {
+                  date: {
+                    ...(desdeValue ? { gte: new Date(`${desdeValue}T00:00:00.000Z`) } : {}),
+                    ...(hastaValue ? { lte: new Date(`${hastaValue}T00:00:00.000Z`) } : {}),
+                  },
+                }
+              : {}),
+          },
+          orderBy: { date: 'desc' },
+          take: 10,
+          include: { account: true },
+        })
+      : Promise.resolve([]),
     editarId
       ? prisma.expense.findFirst({
           where: { id: editarId, userId: user.id },
@@ -95,7 +161,56 @@ export default async function MovimientosPage({ searchParams }: { searchParams: 
 
   const byCurrency = new Map(totals.map((row) => [row.currency, row]))
   const totalRows = totals.reduce((acc, row) => acc + row._count._all, 0)
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const editingHasPaid = editing?.installmentsList.some((item) => item.isPaid) ?? false
+
+  // Torta por categoría, separada por moneda (nunca se suman UYU con USD).
+  const categoryById = new Map(categories.map((category) => [category.id, category]))
+  const breakdownByCurrency = new Map<CurrencyCode, CategoryBreakdownRow[]>()
+  for (const row of breakdownRows) {
+    const code = row.currency as CurrencyCode
+    const category = row.categoryId ? categoryById.get(row.categoryId) : null
+    const list = breakdownByCurrency.get(code) ?? []
+    list.push({
+      categoryId: row.categoryId,
+      name: category?.name ?? 'Sin categorizar',
+      color: category?.color ?? null,
+      cents: Math.round(Number(row._sum.amount ?? 0) * 100),
+    })
+    breakdownByCurrency.set(code, list)
+  }
+  const donuts = (['UYU', 'USD'] as CurrencyCode[])
+    .map((code) => ({
+      code,
+      rows: breakdownByCurrency.get(code) ?? [],
+      slices: categorySlices(breakdownByCurrency.get(code) ?? [], 6),
+      totalCents: (breakdownByCurrency.get(code) ?? []).reduce((sum, row) => sum + row.cents, 0),
+    }))
+    .filter((item) => item.slices.length > 0)
+
+  const rangeLabel =
+    desdeValue || hastaValue
+      ? `${desdeValue ? dateLabel(desdeValue, today) : 'el inicio'} – ${hastaValue ? dateLabel(hastaValue, today) : 'hoy'}`
+      : 'Todo el historial'
+
+  function hrefWith(next: Record<string, string | number | undefined>) {
+    const search = new URLSearchParams()
+    const base: Record<string, string> = {
+      q,
+      moneda,
+      categoria,
+      medio,
+      estado,
+      desde,
+      hasta,
+      periodo,
+    }
+    for (const [key, value] of Object.entries({ ...base, ...next })) {
+      if (value !== undefined && value !== '') search.set(key, String(value))
+    }
+    const qs = search.toString()
+    return qs ? `/movimientos?${qs}` : '/movimientos'
+  }
 
   return (
     <div className="stack">
@@ -130,13 +245,101 @@ export default async function MovimientosPage({ searchParams }: { searchParams: 
           </div>
         </div>
         <div style={{ textAlign: 'right' }}>
-          <span style={{ fontSize: 12, fontWeight: 600, display: 'block' }}>{totalRows} movimiento{totalRows === 1 ? '' : 's'}</span>
-          <small className="hint">Se listan hasta 100 por página</small>
+          <span style={{ fontSize: 12, fontWeight: 600, display: 'block' }}>
+            {total} movimiento{total === 1 ? '' : 's'}
+          </span>
+          <small className="hint">{rangeLabel}</small>
         </div>
       </section>
 
       <section className="panel">
+        <SectionHead
+          title="¿En qué se fue la plata?"
+          note="Gasto por categoría del período elegido. Las monedas se muestran por separado."
+        />
+        <div className="row" style={{ justifyContent: 'space-between', gap: 10, marginBottom: 14 }}>
+          <div className="filter-tabs" role="tablist" aria-label="Período">
+            {PERIODS.map((item) => (
+              <Link
+                key={item.key || 'custom'}
+                href={hrefWith({ periodo: item.key, page: undefined })}
+                className={periodo === item.key ? 'selected' : ''}
+                role="tab"
+                aria-selected={periodo === item.key}
+              >
+                {item.label}
+              </Link>
+            ))}
+          </div>
+          <div className="filter-tabs" role="tablist" aria-label="Medio de pago">
+            {SOURCES.map((item) => (
+              <Link
+                key={item.key || 'all'}
+                href={hrefWith({ medio: item.key, page: undefined })}
+                className={medio === item.key ? 'selected' : ''}
+                role="tab"
+                aria-selected={medio === item.key}
+              >
+                {item.label}
+              </Link>
+            ))}
+          </div>
+        </div>
+        {donuts.length === 0 ? (
+          <p className="hint">No hay gastos en el período y filtros elegidos.</p>
+        ) : (
+          <div className="stack" style={{ gap: 22 }}>
+            {donuts.map((donut) => (
+              <CategoryDonut
+                key={donut.code}
+                slices={donut.slices}
+                currency={donut.code}
+                totalCents={donut.totalCents}
+                label={rangeLabel}
+              />
+            ))}
+          </div>
+        )}
+      </section>
+
+      {withdrawals.length > 0 ? (
+        <section className="panel">
+          <SectionHead
+            title="Movimientos de ahorro"
+            note="Plata que salió del ahorro y volvió a una cuenta (no es un gasto)"
+          />
+          <div className="transaction-list">
+            {withdrawals.map((withdrawal) => (
+              <div className="transaction" key={withdrawal.id}>
+                <span className="category-icon mint">
+                  <Icon name="wallet" size={16} />
+                </span>
+                <div className="item-main">
+                  <strong>Transferencia a {withdrawal.account?.name ?? 'una cuenta'}</strong>
+                  <small>
+                    {dateLabel(toISODate(withdrawal.date), today)} · desde el ahorro
+                    {withdrawal.note ? ` · ${withdrawal.note}` : ''}
+                  </small>
+                </div>
+                <div className="item-amount">
+                  <strong className="amount-in">
+                    + <Money cents={Math.round(Number(withdrawal.amount) * 100)} currency={withdrawal.currency} />
+                  </strong>
+                  <span className="paid">Ahorro</span>
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="hint" style={{ marginTop: 10 }}>
+            Gestioná estas transferencias desde <Link href="/ahorro">Ahorro</Link>.
+          </p>
+        </section>
+      ) : null}
+
+      <section className="panel">
         <form method="get" className="toolbar" style={{ marginBottom: 14 }}>
+          <input type="hidden" name="periodo" value={periodo} />
+          <input type="hidden" name="medio" value={medio} />
           <label className="search">
             <Icon name="search" size={17} />
             <input name="q" defaultValue={q} placeholder="Buscar por comercio" aria-label="Buscar movimiento" />
@@ -154,13 +357,8 @@ export default async function MovimientosPage({ searchParams }: { searchParams: 
             <option value="UYU">UYU</option>
             <option value="USD">USD</option>
           </select>
-          <select className="select" name="medio" defaultValue={medio} style={{ width: 130 }} aria-label="Medio de pago">
-            <option value="">Medio</option>
-            <option value="cuenta">Débito / efectivo</option>
-            <option value="tarjeta">Tarjeta de crédito</option>
-          </select>
-          <input className="input" type="date" name="desde" defaultValue={desde} style={{ width: 150 }} aria-label="Desde" />
-          <input className="input" type="date" name="hasta" defaultValue={hasta} style={{ width: 150 }} aria-label="Hasta" />
+          <input className="input" type="date" name="desde" defaultValue={desdeValue} style={{ width: 150 }} aria-label="Desde" />
+          <input className="input" type="date" name="hasta" defaultValue={hastaValue} style={{ width: 150 }} aria-label="Hasta" />
           <select className="select" name="estado" defaultValue={estado} style={{ width: 150 }} aria-label="Estado">
             <option value="">Todos</option>
             <option value="revision">Por revisar</option>
@@ -169,7 +367,7 @@ export default async function MovimientosPage({ searchParams }: { searchParams: 
           <button className="secondary-button" type="submit">
             Filtrar
           </button>
-          {q || moneda || categoria || medio || desde || hasta || estado ? (
+          {q || moneda || categoria || medio || desde || hasta || estado || periodo ? (
             <Link href="/movimientos" className="link-button">
               Limpiar
             </Link>
@@ -178,7 +376,7 @@ export default async function MovimientosPage({ searchParams }: { searchParams: 
 
         <div className="date-divider">
           <span>{estado === 'revision' ? 'IMPORTADOS POR REVISAR' : 'MOVIMIENTOS'}</span>
-          <span>{totalRows}</span>
+          <span>{total}</span>
         </div>
 
         {expenses.length === 0 ? (
@@ -267,6 +465,26 @@ export default async function MovimientosPage({ searchParams }: { searchParams: 
             })}
           </div>
         )}
+
+        {totalPages > 1 ? (
+          <nav className="pager" aria-label="Páginas de movimientos">
+            <span>
+              Página {page} de {totalPages}
+            </span>
+            <div className="row">
+              {page > 1 ? (
+                <Link href={hrefWith({ page: page - 1 })}>← Anterior</Link>
+              ) : (
+                <span className="disabled">← Anterior</span>
+              )}
+              {page < totalPages ? (
+                <Link href={hrefWith({ page: page + 1 })}>Siguiente →</Link>
+              ) : (
+                <span className="disabled">Siguiente →</span>
+              )}
+            </div>
+          </nav>
+        ) : null}
       </section>
 
       {nuevo ? (

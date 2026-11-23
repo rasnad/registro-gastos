@@ -47,6 +47,11 @@ npm run db:deploy  # prisma migrate deploy (requiere TCP 5432)
    display en `src/components/ui.tsx`; formularios en `src/components/forms/`.
 13. **Secretos**: nunca commitear `.env` ni tokens. Los tokens de Gmail se cifran con
     `TOKEN_ENCRYPTION_KEY` (AES-256-GCM).
+14. **Ahorro**: `SavingsFund` guarda el ahorro inicial por moneda y `SavingsWithdrawal` las
+    transferencias del ahorro a una cuenta. Ahorro total = inicial + aportes − retiros. Un retiro
+    suma al saldo de la cuenta (es dinero que vuelve al banco) y **no** cambia el avance de los
+    objetivos; si el total queda por debajo del inicial se muestra en rojo. Nunca se convierten
+    monedas. Lógica pura en `src/lib/finance/savings.ts`.
 
 ## Dónde cambiar cada cosa
 

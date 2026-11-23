@@ -246,7 +246,12 @@ Tablas principales: `User`, `Account`, `Income`, `BalanceAdjustment`, `Expense`,
    original queda en las notas).
 6. **Ahorro** ⇒ los aportes con cuenta descuentan el disponible; el ahorro programado se resta del
    margen proyectado. La asignación a objetivos es **por prioridad**, sin prometer dos veces el mismo
-   dinero.
+   dinero. El **ahorro inicial** (`SavingsFund`, uno por moneda) es la plata que ya estaba ahorrada:
+   el ahorro total es inicial + aportes − transferencias a cuentas. Una **transferencia del ahorro**
+   (`SavingsWithdrawal`) devuelve la plata a la cuenta elegida (sube ese saldo) y baja el ahorro;
+   **no** descuenta el avance de los objetivos. Si el total queda por debajo del ahorro inicial, se
+   muestra en rojo. La gráfica compara el ahorro real con la línea esperada según el ahorro mensual
+   de los objetivos; todo se calcula por moneda, sin convertir.
 7. **Tarjeta sin moneda** ⇒ una tarjeta acepta consumos en pesos y en dólares (no tiene moneda propia).
    El pago se registra por la moneda de la obligación y se debita en pesos a la cotización configurada
    (Ajustes →
@@ -365,6 +370,8 @@ Cobertura de los puntos críticos:
 | Pago USD desde cuenta UYU | Convierte con la cotización configurada, debita pesos y salda la cuota en dólares. |
 | Gastos compartidos | El porcentaje de la cuenta fija ajusta saldo, compromisos y proyección sin cambiar el total cargado. |
 | Reparto de gastos | Porcentajes sólo entre usuarios registrados, suma exacta de 100, ceros descartados, sin reparto = 100% del dueño, importes de la parte en centavos enteros. |
+| Ahorro | Ahorro total = inicial + aportes − transferencias; transferir a una cuenta devuelve el saldo sin tocar el avance de los objetivos; rojo cuando queda por debajo del inicial; serie mensual real vs. esperada por moneda. |
+| Gráficas y paginación | Torta por categoría cerrando siempre en 100%, cola agrupada en "Otras", orden y porcentajes; paginación de 25 movimientos conservando los filtros. |
 | Transferencias del correo | Importe y moneda del aviso, gasto por revisar sin tarjeta, nombre con el banco destino, conversión de dólares con la cotización configurada y origen anotado, sin cotización no inventa pesos. |
 | Parsers | Extracción de avisos de consumo y de resúmenes, columnas pesos/dólares, cuotas N/M, líneas omitidas, datos faltantes e instrucciones sospechosas ignoradas. |
 

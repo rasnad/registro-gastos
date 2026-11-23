@@ -20,7 +20,7 @@ describe('auditoría de noviembre: original, pagado y pendiente',()=>{
   it('explica 80978 = 26290 pagados + 54688 pendientes y el saldo real',()=>{
     const input=november();const d=dashboardCommitments(input,'2026-11',4100)
     expect(d.bills).toMatchObject({totalCents:8097800,remainingCents:5468800,status:'PARTIAL'})
-    expect(accountBalanceBreakdown(input.accounts[0],input)).toEqual({openingCents:11500000,incomeCents:0,adjustmentCents:0,expenseCents:0,cardPaymentCents:5147037,billPaymentCents:2629000,contributionCents:0,balanceCents:3723963})
+    expect(accountBalanceBreakdown(input.accounts[0],input)).toEqual({openingCents:11500000,incomeCents:0,adjustmentCents:0,expenseCents:0,cardPaymentCents:5147037,billPaymentCents:2629000,contributionCents:0,withdrawalCents:0,balanceCents:3723963})
     expect(d.cards).toMatchObject({totalCents:6131799,remainingCents:984762,status:'PARTIAL'})
     expect(d.availableAfterCommitmentsCents).toBe(-2729599)
     expect(computeCurrencySummary(input,'UYU').afterCommitmentsCents).toBe(d.availableAfterCommitmentsCents)
