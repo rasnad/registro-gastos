@@ -1,6 +1,6 @@
 import { BillHistoryChart } from '@/components/finance/bill-history-chart'
 import { PaymentHistory } from '@/components/finance/payment-history'
-import { billObligationBalance, cardObligationBalance, applyShare, obligationPayments, billComparisonHistory, billMonthlyView } from '@/lib/finance/engine'
+import { billObligationBalance, billPaidCents, cardObligationBalance, applyShare, obligationPayments, billComparisonHistory, billMonthlyView } from '@/lib/finance/engine'
 import type { Metadata } from 'next'
 import { requireUser } from '@/lib/auth'
 import { prisma } from '@/lib/db'
@@ -67,18 +67,27 @@ export default async function CuentasPage({ searchParams }: { searchParams: Prom
       cardChargedBillsForPeriod(data.input, cur, month),
     )
     const items = [
-      ...bankBills.map((item) => ({
-        name: item.bill.name,
-        amountCents: item.expectedCents,
-        pendingCents: applyShare(billObligationBalance(data.input,item.bill,month,item.occurrence ?? undefined).remainingCents,item.bill.sharePercent),
-        paidCents: applyShare(billObligationBalance(data.input,item.bill,month,item.occurrence ?? undefined).paidCents,item.bill.sharePercent),
-        currency: item.bill.currency as CurrencyCode,
-        frequency: item.bill.frequency,
-        sharePercent: item.bill.sharePercent,
-        chargedToCard: false,
-        estimated: !item.exact,
-        paid: item.paid,
-      })),
+      ...bankBills.map((item) => {
+        const balance = billObligationBalance(data.input, item.bill, month, item.occurrence ?? undefined)
+        const paidCents = applyShare(balance.paidCents, item.bill.sharePercent)
+        // Pagada: se muestra lo que realmente se abonó. Pendiente: la estimación.
+        const actualCents = applyShare(
+          billPaidCents(data.input, item.bill, month, item.occurrence ?? undefined),
+          item.bill.sharePercent,
+        )
+        return {
+          name: item.bill.name,
+          amountCents: item.paid && actualCents > 0 ? actualCents : item.expectedCents,
+          pendingCents: applyShare(balance.remainingCents, item.bill.sharePercent),
+          paidCents,
+          currency: item.bill.currency as CurrencyCode,
+          frequency: item.bill.frequency,
+          sharePercent: item.bill.sharePercent,
+          chargedToCard: false,
+          estimated: !item.exact,
+          paid: item.paid,
+        }
+      }),
       ...cardBills.map((item) => ({
         name: item.bill.name,
         amountCents: item.expectedCents,

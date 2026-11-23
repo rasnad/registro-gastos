@@ -267,6 +267,10 @@ Tablas principales: `User`, `Account`, `Income`, `BalanceAdjustment`, `Expense`,
    Cada cuenta tiene un **porcentaje** (default 100%) para gastos compartidos: cargás el importe total y
    el saldo, las proyecciones y los totales usan sólo tu parte. El total y el porcentaje se muestran
    en la lista; el pago se registra con el importe total.
+   Los **importes estimados** (fijo o rango) se usan **sólo para las proyecciones**: si la cuota del mes
+   está **marcada como pagada**, se considera saldada aunque lo abonado sea menor al mínimo estimado y
+   la diferencia **no** aparece como dinero pendiente. En el detalle del mes las cuentas pagadas
+   muestran el importe efectivamente abonado; las pendientes, la estimación.
 10. **Cuenta predeterminada** ⇒ una cuenta puede marcarse como predeterminada; se preselecciona en los
     formularios de gasto, cuenta fija, ingreso, ajuste, aporte y pago de resumen (si la moneda coincide).
 11. **Reparto de un gasto** ⇒ `ExpenseShare` guarda qué porcentaje asume cada usuario registrado. Sin

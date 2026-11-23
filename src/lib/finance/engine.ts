@@ -364,7 +364,31 @@ export function accountBalanceAt(account: AccountSnapshot, input: EngineInput, a
 }
 
 export function billObligationBalance(input: EngineInput, bill: BillSnapshot, period: string, occurrence = input.billOccurrences.find(o => o.billId === bill.id && o.period === period)) {
-  return obligationBalance(billTotalCents(bill,occurrence), obligationPayments(input).filter(p => p.obligationKind === 'BILL' && p.obligationId === bill.id && p.period === period && p.currency === bill.currency && p.paidAt <= input.today).map(p => p.amountCents))
+  const balance = obligationBalance(billTotalCents(bill,occurrence), obligationPayments(input).filter(p => p.obligationKind === 'BILL' && p.obligationId === bill.id && p.period === period && p.currency === bill.currency && p.paidAt <= input.today).map(p => p.amountCents))
+  // Marcada como pagada ⇒ saldada. Los importes estimados son sólo para proyecciones:
+  // si lo abonado fue menor, esa diferencia no es dinero pendiente.
+  if (billSettled(occurrence)) return {...balance, remainingCents: 0, status: 'PAID' as const}
+  return balance
+}
+
+/** Una cuenta fija con la ocurrencia marcada como pagada se considera saldada. */
+export function billSettled(occurrence?: BillOccurrenceSnapshot | null): boolean {
+  return occurrence?.status === 'PAID'
+}
+
+/**
+ * Importe realmente abonado de una cuenta en el mes: lo cargado en la ocurrencia,
+ * lo registrado como pago o, si no hay dato, el estimado. Para una cuenta pagada
+ * es el número honesto; para una pendiente se sigue usando la estimación.
+ */
+export function billPaidCents(input: EngineInput, bill: BillSnapshot, period: string, occurrence = input.billOccurrences.find(o => o.billId === bill.id && o.period === period)): number {
+  const payments = obligationPayments(input)
+    .filter(p => p.obligationKind === 'BILL' && p.obligationId === bill.id && p.period === period && p.currency === bill.currency && p.paidAt <= input.today)
+    .map(p => p.amountCents)
+  const paid = payments.reduce((sum, amount) => sum + amount, 0)
+  if (occurrence?.amountActualCents != null) return occurrence.amountActualCents
+  if (paid > 0) return paid
+  return billTotalCents(bill, occurrence)
 }
 
 export function accountBalances(input: EngineInput): Array<{
@@ -1166,6 +1190,8 @@ export function monthObligationBalances(input: EngineInput, period: string) {
     const balance = billObligationBalance(input,item.bill,period,item.occurrence ?? undefined)
     const totalCents = item.expectedCents
     const paidCents = applyShare(balance.paidCents,item.bill.sharePercent)
+    // Pagada ⇒ no queda nada pendiente aunque el estimado sea mayor a lo abonado.
+    if (billSettled(item.occurrence)) return {id:item.bill.id,kind:'BILL' as const,period,currency:item.bill.currency,totalCents,paidCents,remainingCents:0,status:'PAID' as const}
     return {id:item.bill.id,kind:'BILL' as const,period,currency:item.bill.currency,...obligationBalance(totalCents,[paidCents])}
   })
   const cards = input.cards.flatMap(card => (['UYU','USD'] as const).map(currency => ({
